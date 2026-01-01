@@ -38,3 +38,30 @@ clipboard_cmd: wl-copy
 		t.Errorf("ClipboardCmd = %q, want %q", cfg.ClipboardCmd, "wl-copy")
 	}
 }
+
+func TestLoadConfig_AppliesDefaults(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.yaml")
+	content := `model: llama3.2
+system_prompt_file: /path/to/prompt.md
+`
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.OllamaHost != "http://localhost:11434" {
+		t.Errorf("OllamaHost = %q, want default %q", cfg.OllamaHost, "http://localhost:11434")
+	}
+}
+
+func TestLoadConfig_FileNotFound(t *testing.T) {
+	_, err := LoadConfig("/nonexistent/config.yaml")
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
