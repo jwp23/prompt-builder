@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/term"
 )
 
 var (
@@ -64,6 +67,10 @@ func defaultConfigPath() string {
 	return filepath.Join(home, ".config", "prompt-builder", "config.yaml")
 }
 
+func isTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 func run(cli *CLI) error {
 	// Determine config path
 	configPath := cli.ConfigPath
@@ -98,11 +105,76 @@ func run(cli *CLI) error {
 		return fmt.Errorf("system prompt not found: %s", promptPath)
 	}
 
-	fmt.Printf("Config loaded: model=%s\n", cfg.Model)
-	fmt.Printf("System prompt: %d bytes\n", len(systemPrompt))
-	fmt.Printf("Idea: %s\n", cli.Idea)
+	// Detect clipboard
+	clipboardCmd := DetectClipboardCmd(cfg.ClipboardCmd)
 
-	return nil
+	// Initialize Ollama client
+	client := NewOllamaClient(cfg.OllamaHost, cfg.Model)
+
+	// Initialize conversation
+	conv := NewConversation(string(systemPrompt))
+
+	// Prepare user's idea
+	userIdea := cli.Idea
+	if !isTTY() {
+		// Pipe mode: ask for immediate generation
+		userIdea = "Generate your best prompt without asking clarifying questions. User's idea: " + userIdea
+	}
+	conv.AddUserMessage(userIdea)
+
+	// Conversation loop
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		// Get response from LLM
+		response, err := client.Chat(conv.Messages)
+		if err != nil {
+			return fmt.Errorf("Ollama request failed: %v", err)
+		}
+
+		conv.AddAssistantMessage(response)
+
+		// Check if conversation is complete
+		if IsComplete(response) {
+			// Extract final prompt
+			finalPrompt := ExtractLastCodeBlock(response)
+
+			// Print response (shows the full output including code block)
+			if !cli.Quiet {
+				fmt.Println(response)
+			} else {
+				fmt.Println(finalPrompt)
+			}
+
+			// Copy to clipboard if TTY and not disabled
+			if isTTY() && !cli.NoCopy && clipboardCmd != "" {
+				if err := CopyToClipboard(finalPrompt, clipboardCmd); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: clipboard copy failed: %v\n", err)
+				} else {
+					fmt.Fprintln(os.Stderr, "✓ Copied to clipboard")
+				}
+			}
+
+			return nil
+		}
+
+		// Not complete - print response and wait for user input
+		if !cli.Quiet {
+			fmt.Println(response)
+		}
+
+		// In pipe mode, can't ask for input
+		if !isTTY() {
+			return fmt.Errorf("LLM requested clarification but stdin is not a TTY")
+		}
+
+		fmt.Print("> ")
+		userInput, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("failed to read input: %v", err)
+		}
+
+		conv.AddUserMessage(userInput)
+	}
 }
 
 func main() {
