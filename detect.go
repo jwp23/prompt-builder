@@ -29,3 +29,10 @@ func ExtractLastCodeBlock(text string) string {
 
 	return text[contentStart:lastStart]
 }
+
+func IsComplete(response string) bool {
+	hasCodeBlock := strings.Contains(response, "```")
+	trimmed := strings.TrimSpace(response)
+	endsWithQuestion := strings.HasSuffix(trimmed, "?")
+	return hasCodeBlock && !endsWithQuestion
+}
