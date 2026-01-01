@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"golang.org/x/term"
 )
@@ -79,7 +82,8 @@ func isTTY() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-func run(cli *CLI) error {
+func run(ctx context.Context, cli *CLI) error {
+	_ = ctx // Context available for future cancellation support
 	// Determine config path
 	configPath := cli.ConfigPath
 	if configPath == "" {
@@ -186,6 +190,18 @@ func run(cli *CLI) error {
 }
 
 func main() {
+	// Set up signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		cancel()
+		os.Exit(130) // Standard exit code for SIGINT
+	}()
+
 	cli, err := parseArgs()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
@@ -193,7 +209,7 @@ func main() {
 		os.Exit(ExitConfigError)
 	}
 
-	if err := run(cli); err != nil {
+	if err := run(ctx, cli); err != nil {
 		errStr := err.Error()
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 
