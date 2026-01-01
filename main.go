@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 var (
@@ -55,6 +56,55 @@ func parseArgs() (*CLI, error) {
 	return cli, nil
 }
 
+func defaultConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "prompt-builder", "config.yaml")
+}
+
+func run(cli *CLI) error {
+	// Determine config path
+	configPath := cli.ConfigPath
+	if configPath == "" {
+		configPath = defaultConfigPath()
+	}
+	configPath = ExpandPath(configPath)
+
+	// Load config
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF", configPath)
+		}
+		return fmt.Errorf("invalid config: %v", err)
+	}
+
+	// Apply CLI overrides
+	if cli.Model != "" {
+		cfg.Model = cli.Model
+	}
+
+	// Validate model
+	if cfg.Model == "" {
+		return fmt.Errorf("no model specified\n\nSet 'model' in config or use --model flag")
+	}
+
+	// Load system prompt
+	promptPath := ExpandPath(cfg.SystemPromptFile)
+	systemPrompt, err := os.ReadFile(promptPath)
+	if err != nil {
+		return fmt.Errorf("system prompt not found: %s", promptPath)
+	}
+
+	fmt.Printf("Config loaded: model=%s\n", cfg.Model)
+	fmt.Printf("System prompt: %d bytes\n", len(systemPrompt))
+	fmt.Printf("Idea: %s\n", cli.Idea)
+
+	return nil
+}
+
 func main() {
 	cli, err := parseArgs()
 	if err != nil {
@@ -63,7 +113,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Idea: %s\n", cli.Idea)
-	fmt.Printf("Model: %s\n", cli.Model)
-	fmt.Printf("Config: %s\n", cli.ConfigPath)
+	if err := run(cli); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
