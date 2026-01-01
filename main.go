@@ -6,8 +6,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/term"
+)
+
+const (
+	ExitSuccess     = 0
+	ExitConfigError = 1
+	ExitOllamaError = 2
+	ExitNoModel     = 3
 )
 
 var (
@@ -182,11 +190,22 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(ExitConfigError)
 	}
 
 	if err := run(cli); err != nil {
+		errStr := err.Error()
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+
+		switch {
+		case strings.Contains(errStr, "config") || strings.Contains(errStr, "system prompt"):
+			os.Exit(ExitConfigError)
+		case strings.Contains(errStr, "Ollama") || strings.Contains(errStr, "connect"):
+			os.Exit(ExitOllamaError)
+		case strings.Contains(errStr, "no model"):
+			os.Exit(ExitNoModel)
+		default:
+			os.Exit(1)
+		}
 	}
 }
