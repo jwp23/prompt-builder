@@ -65,3 +65,26 @@ func TestLoadConfig_FileNotFound(t *testing.T) {
 		t.Error("expected error for nonexistent file")
 	}
 }
+
+func TestExpandPath_Tilde(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"~/config.yaml", filepath.Join(home, "config.yaml")},
+		{"/absolute/path", "/absolute/path"},
+		{"relative/path", "relative/path"},
+	}
+
+	for _, tt := range tests {
+		got := ExpandPath(tt.input)
+		if got != tt.want {
+			t.Errorf("ExpandPath(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
