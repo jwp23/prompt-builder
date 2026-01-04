@@ -1,0 +1,9 @@
+# Go binary
+prompt-builder
+
+# Test binaries
+*.test
+
+# Go workspace
+go.work
+go.work.sum
