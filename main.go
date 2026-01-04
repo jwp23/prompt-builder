@@ -145,38 +145,23 @@ func run(ctx context.Context, cli *CLI) error {
 
 		conv.AddAssistantMessage(response)
 
-		// Check if conversation is complete
-		if IsComplete(response) {
-			// Extract final prompt
-			finalPrompt := ExtractLastCodeBlock(response)
-
-			// Print response (shows the full output including code block)
-			if !cli.Quiet {
-				fmt.Println(response)
-			} else {
-				fmt.Println(finalPrompt)
-			}
-
-			// Copy to clipboard if TTY and not disabled
-			if isTTY() && !cli.NoCopy && clipboardCmd != "" {
-				if err := CopyToClipboard(finalPrompt, clipboardCmd); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: clipboard copy failed: %v\n", err)
+		// Pipe mode: output result and exit (can't continue conversation)
+		if !isTTY() {
+			if IsComplete(response) {
+				finalPrompt := ExtractLastCodeBlock(response)
+				if !cli.Quiet {
+					fmt.Println(response)
 				} else {
-					fmt.Fprintln(os.Stderr, "✓ Copied to clipboard")
+					fmt.Println(finalPrompt)
 				}
+				return nil
 			}
-
-			return nil
+			return fmt.Errorf("LLM requested clarification but stdin is not a TTY")
 		}
 
-		// Not complete - print response and wait for user input
+		// Interactive mode: print response and continue conversation
 		if !cli.Quiet {
 			fmt.Println(response)
-		}
-
-		// In pipe mode, can't ask for input
-		if !isTTY() {
-			return fmt.Errorf("LLM requested clarification but stdin is not a TTY")
 		}
 
 		fmt.Print("> ")

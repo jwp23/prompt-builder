@@ -111,7 +111,7 @@ func TestHandleCommand_Help(t *testing.T) {
 	}
 
 	wantOutput := `Commands:
-  /copy   Copy last code block to clipboard
+  /copy   Copy last code block to clipboard and exit
   /bye    Exit conversation
   /quit   Exit conversation
   /exit   Exit conversation
@@ -132,8 +132,8 @@ func TestHandleCommand_Copy_Success(t *testing.T) {
 	if err != nil {
 		t.Errorf("HandleCommand() error = %v", err)
 	}
-	if shouldExit {
-		t.Error("HandleCommand() should not exit on /copy")
+	if !shouldExit {
+		t.Error("HandleCommand() should exit on /copy")
 	}
 	wantOutput := "\u2713 Copied to clipboard\n"
 	if out.String() != wantOutput {

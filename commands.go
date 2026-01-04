@@ -47,10 +47,10 @@ func HandleCommand(input, lastResponse, clipboardCmd string, out io.Writer) (sho
 			return false, fmt.Errorf("Clipboard not available")
 		}
 		fmt.Fprintln(out, "\u2713 Copied to clipboard")
-		return false, nil
+		return true, nil
 	case "help":
 		fmt.Fprintln(out, `Commands:
-  /copy   Copy last code block to clipboard
+  /copy   Copy last code block to clipboard and exit
   /bye    Exit conversation
   /quit   Exit conversation
   /exit   Exit conversation

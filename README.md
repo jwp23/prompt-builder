@@ -94,10 +94,8 @@ The tool auto-detects your clipboard command: `wl-copy` (Wayland), `xclip` (X11)
 
 1. You provide an idea
 2. The LLM asks clarifying questions
-3. You answer until the prompt is ready (use slash commands like `/copy` or `/help` anytime)
-4. The tool extracts and copies the final prompt
-
-The conversation ends when the response contains a code block and no trailing question.
+3. You answer until the prompt is ready (use `/help` to see available commands)
+4. Type `/copy` to copy the final prompt and exit
 
 When piped to another command, the tool generates immediately without questions.
 
@@ -107,7 +105,7 @@ During a conversation, you can use these slash commands:
 
 | Command | Action |
 |---------|--------|
-| `/copy` | Copy last code block to clipboard |
+| `/copy` | Copy last code block to clipboard and exit |
 | `/bye` | Exit conversation |
 | `/quit` | Exit conversation |
 | `/exit` | Exit conversation |
@@ -118,7 +116,7 @@ Commands are case-insensitive (`/COPY`, `/Copy`, `/copy` all work).
 ```
 > /help
 Commands:
-  /copy   Copy last code block to clipboard
+  /copy   Copy last code block to clipboard and exit
   /bye    Exit conversation
   /quit   Exit conversation
   /exit   Exit conversation
