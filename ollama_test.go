@@ -102,6 +102,42 @@ func fakeStreamingServer(chunks []string) *httptest.Server {
 	}))
 }
 
+func TestOllamaClient_ChatStream_HappyPath(t *testing.T) {
+	server := fakeStreamingServer([]string{"Hello", " there", "!"})
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	messages := []Message{
+		{Role: "user", Content: "Hi"},
+	}
+
+	var tokens []string
+	response, err := client.ChatStream(messages, func(token string) error {
+		tokens = append(tokens, token)
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify callback received tokens in order
+	expectedTokens := []string{"Hello", " there", "!"}
+	if len(tokens) != len(expectedTokens) {
+		t.Errorf("got %d tokens, want %d", len(tokens), len(expectedTokens))
+	}
+	for i, tok := range tokens {
+		if tok != expectedTokens[i] {
+			t.Errorf("token[%d] = %q, want %q", i, tok, expectedTokens[i])
+		}
+	}
+
+	// Verify accumulated response
+	if response != "Hello there!" {
+		t.Errorf("response = %q, want %q", response, "Hello there!")
+	}
+}
+
 func TestOllamaClient_Chat(t *testing.T) {
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
