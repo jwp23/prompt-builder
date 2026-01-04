@@ -1,4 +1,4 @@
-module github.com/mordant23/prompt-builder
+module github.com/jwp23/prompt-builder
 
 go 1.25.5
 
