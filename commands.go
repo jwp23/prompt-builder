@@ -33,6 +33,6 @@ func HandleCommand(input, lastResponse, clipboardCmd string, out io.Writer) (sho
 		fmt.Fprintln(out, "Goodbye")
 		return true, nil
 	default:
-		return false, nil
+		return false, fmt.Errorf("Unknown command: /%s. Type /help for available commands.", cmd)
 	}
 }

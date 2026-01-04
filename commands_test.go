@@ -82,3 +82,19 @@ func TestHandleCommand_Exit(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleCommand_Unknown(t *testing.T) {
+	var out bytes.Buffer
+	shouldExit, err := HandleCommand("/foo", "", "", &out)
+
+	if err == nil {
+		t.Error("HandleCommand() expected error for unknown command")
+	}
+	if shouldExit {
+		t.Error("HandleCommand() should not exit on unknown command")
+	}
+	wantErr := "Unknown command: /foo. Type /help for available commands."
+	if err.Error() != wantErr {
+		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+	}
+}
