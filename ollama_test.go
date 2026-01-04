@@ -37,6 +37,16 @@ func TestOllamaRequest_Serialization(t *testing.T) {
 	}
 }
 
+func TestStreamCallback_Type(t *testing.T) {
+	var callback StreamCallback = func(token string) error {
+		return nil
+	}
+
+	if err := callback("test"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestOllamaStreamChunk_Deserialization(t *testing.T) {
 	tests := []struct {
 		name        string

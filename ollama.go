@@ -29,6 +29,8 @@ type OllamaStreamChunk struct {
 	Done    bool    `json:"done"`
 }
 
+type StreamCallback func(token string) error
+
 type OllamaClient struct {
 	Host   string
 	Model  string
