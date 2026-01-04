@@ -98,3 +98,26 @@ func TestHandleCommand_Unknown(t *testing.T) {
 		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
 	}
 }
+
+func TestHandleCommand_Help(t *testing.T) {
+	var out bytes.Buffer
+	shouldExit, err := HandleCommand("/help", "", "", &out)
+
+	if err != nil {
+		t.Errorf("HandleCommand() error = %v", err)
+	}
+	if shouldExit {
+		t.Error("HandleCommand() should not exit on /help")
+	}
+
+	wantOutput := `Commands:
+  /copy   Copy last code block to clipboard
+  /bye    Exit conversation
+  /quit   Exit conversation
+  /exit   Exit conversation
+  /help   Show this help
+`
+	if out.String() != wantOutput {
+		t.Errorf("HandleCommand() output = %q, want %q", out.String(), wantOutput)
+	}
+}

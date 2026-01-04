@@ -32,6 +32,14 @@ func HandleCommand(input, lastResponse, clipboardCmd string, out io.Writer) (sho
 	case "bye", "quit", "exit":
 		fmt.Fprintln(out, "Goodbye")
 		return true, nil
+	case "help":
+		fmt.Fprintln(out, `Commands:
+  /copy   Copy last code block to clipboard
+  /bye    Exit conversation
+  /quit   Exit conversation
+  /exit   Exit conversation
+  /help   Show this help`)
+		return false, nil
 	default:
 		return false, fmt.Errorf("Unknown command: /%s. Type /help for available commands.", cmd)
 	}
