@@ -137,10 +137,18 @@ func run(ctx context.Context, cli *CLI) error {
 	// Conversation loop
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		// Get response from LLM
-		response, err := client.Chat(conv.Messages)
+		// Get response from LLM with streaming
+		response, err := client.ChatStream(conv.Messages, func(token string) error {
+			if !cli.Quiet {
+				fmt.Print(token)
+			}
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("Ollama request failed: %v", err)
+		}
+		if !cli.Quiet {
+			fmt.Println() // newline after streaming completes
 		}
 
 		conv.AddAssistantMessage(response)
@@ -148,21 +156,18 @@ func run(ctx context.Context, cli *CLI) error {
 		// Pipe mode: output result and exit (can't continue conversation)
 		if !isTTY() {
 			if IsComplete(response) {
-				finalPrompt := ExtractLastCodeBlock(response)
-				if !cli.Quiet {
-					fmt.Println(response)
-				} else {
+				if cli.Quiet {
+					// In quiet mode, print only the extracted code block
+					finalPrompt := ExtractLastCodeBlock(response)
 					fmt.Println(finalPrompt)
 				}
+				// Non-quiet mode already streamed the response
 				return nil
 			}
 			return fmt.Errorf("LLM requested clarification but stdin is not a TTY")
 		}
 
-		// Interactive mode: print response and continue conversation
-		if !cli.Quiet {
-			fmt.Println(response)
-		}
+		// Interactive mode: response already streamed above
 
 		fmt.Print("> ")
 		userInput, err := reader.ReadString('\n')
