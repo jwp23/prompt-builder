@@ -121,3 +121,22 @@ func TestHandleCommand_Help(t *testing.T) {
 		t.Errorf("HandleCommand() output = %q, want %q", out.String(), wantOutput)
 	}
 }
+
+func TestHandleCommand_Copy_Success(t *testing.T) {
+	lastResponse := "Here is your code:\n```\nfmt.Println(\"hello\")\n```\n"
+
+	var out bytes.Buffer
+	// Use "cat" as a mock clipboard command that accepts stdin
+	shouldExit, err := HandleCommand("/copy", lastResponse, "cat", &out)
+
+	if err != nil {
+		t.Errorf("HandleCommand() error = %v", err)
+	}
+	if shouldExit {
+		t.Error("HandleCommand() should not exit on /copy")
+	}
+	wantOutput := "\u2713 Copied to clipboard\n"
+	if out.String() != wantOutput {
+		t.Errorf("HandleCommand() output = %q, want %q", out.String(), wantOutput)
+	}
+}
