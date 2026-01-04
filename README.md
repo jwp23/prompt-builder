@@ -100,6 +100,31 @@ The conversation ends when the response contains a code block and no trailing qu
 
 When piped to another command, the tool generates immediately without questions.
 
+## Interactive Commands
+
+During a conversation, you can use these slash commands:
+
+| Command | Action |
+|---------|--------|
+| `/copy` | Copy last code block to clipboard |
+| `/bye` | Exit conversation |
+| `/quit` | Exit conversation |
+| `/exit` | Exit conversation |
+| `/help` | List available commands |
+
+Commands are case-insensitive (`/COPY`, `/Copy`, `/copy` all work).
+
+```
+> /help
+Commands:
+  /copy   Copy last code block to clipboard
+  /bye    Exit conversation
+  /quit   Exit conversation
+  /exit   Exit conversation
+  /help   Show this help
+>
+```
+
 ## Exit Codes
 
 | Code | Meaning |
