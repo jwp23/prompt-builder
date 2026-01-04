@@ -70,6 +70,9 @@ prompt-builder [flags] <idea>
 
 # Pipe without clipboard
 ./prompt-builder "code review checklist" --no-copy > review.md
+
+# Pipe directly to clipboard
+./prompt-builder -q "code review checklist" | wl-copy
 ```
 
 ## Configuration
