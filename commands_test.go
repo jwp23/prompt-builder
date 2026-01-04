@@ -140,3 +140,43 @@ func TestHandleCommand_Copy_Success(t *testing.T) {
 		t.Errorf("HandleCommand() output = %q, want %q", out.String(), wantOutput)
 	}
 }
+
+func TestHandleCommand_Copy_NoResponse(t *testing.T) {
+	var out bytes.Buffer
+	_, err := HandleCommand("/copy", "", "cat", &out)
+
+	if err == nil {
+		t.Error("HandleCommand() expected error when no response")
+	}
+	wantErr := "No response to copy from"
+	if err.Error() != wantErr {
+		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+	}
+}
+
+func TestHandleCommand_Copy_NoCodeBlock(t *testing.T) {
+	var out bytes.Buffer
+	_, err := HandleCommand("/copy", "Just plain text", "cat", &out)
+
+	if err == nil {
+		t.Error("HandleCommand() expected error when no code block")
+	}
+	wantErr := "No code block to copy"
+	if err.Error() != wantErr {
+		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+	}
+}
+
+func TestHandleCommand_Copy_NoClipboard(t *testing.T) {
+	lastResponse := "```\ncode\n```"
+	var out bytes.Buffer
+	_, err := HandleCommand("/copy", lastResponse, "", &out)
+
+	if err == nil {
+		t.Error("HandleCommand() expected error when clipboard unavailable")
+	}
+	wantErr := "Clipboard not available"
+	if err.Error() != wantErr {
+		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+	}
+}
