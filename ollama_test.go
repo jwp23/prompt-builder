@@ -37,6 +37,49 @@ func TestOllamaRequest_Serialization(t *testing.T) {
 	}
 }
 
+func TestOllamaStreamChunk_Deserialization(t *testing.T) {
+	tests := []struct {
+		name        string
+		json        string
+		wantRole    string
+		wantContent string
+		wantDone    bool
+	}{
+		{
+			name:        "partial chunk",
+			json:        `{"message":{"role":"assistant","content":"Hello"},"done":false}`,
+			wantRole:    "assistant",
+			wantContent: "Hello",
+			wantDone:    false,
+		},
+		{
+			name:        "final chunk",
+			json:        `{"message":{"role":"assistant","content":"!"},"done":true}`,
+			wantRole:    "assistant",
+			wantContent: "!",
+			wantDone:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var chunk OllamaStreamChunk
+			if err := json.Unmarshal([]byte(tt.json), &chunk); err != nil {
+				t.Fatalf("failed to unmarshal: %v", err)
+			}
+			if chunk.Message.Role != tt.wantRole {
+				t.Errorf("role = %q, want %q", chunk.Message.Role, tt.wantRole)
+			}
+			if chunk.Message.Content != tt.wantContent {
+				t.Errorf("content = %q, want %q", chunk.Message.Content, tt.wantContent)
+			}
+			if chunk.Done != tt.wantDone {
+				t.Errorf("done = %v, want %v", chunk.Done, tt.wantDone)
+			}
+		})
+	}
+}
+
 func TestOllamaClient_Chat(t *testing.T) {
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

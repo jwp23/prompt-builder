@@ -24,6 +24,11 @@ type OllamaResponse struct {
 	Message Message `json:"message"`
 }
 
+type OllamaStreamChunk struct {
+	Message Message `json:"message"`
+	Done    bool    `json:"done"`
+}
+
 type OllamaClient struct {
 	Host   string
 	Model  string
