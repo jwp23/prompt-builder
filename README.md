@@ -6,8 +6,6 @@ Transform ideas into structured prompts using a local LLM.
 
 **1. Install Ollama and pull a model:**
 
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2
 ```
 
@@ -93,7 +91,7 @@ The tool auto-detects your clipboard command: `wl-copy` (Wayland), `xclip` (X11)
 
 1. You provide an idea
 2. The LLM asks clarifying questions
-3. You answer until the prompt is ready
+3. You answer until the prompt is ready (use slash commands like `/copy` or `/help` anytime)
 4. The tool extracts and copies the final prompt
 
 The conversation ends when the response contains a code block and no trailing question.
