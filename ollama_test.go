@@ -138,6 +138,74 @@ func TestOllamaClient_ChatStream_HappyPath(t *testing.T) {
 	}
 }
 
+func TestOllamaClient_ChatStream_CallbackError(t *testing.T) {
+	server := fakeStreamingServer([]string{"Hello", " there", "!"})
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	messages := []Message{{Role: "user", Content: "Hi"}}
+
+	callbackErr := fmt.Errorf("callback failed")
+	callCount := 0
+	_, err := client.ChatStream(messages, func(token string) error {
+		callCount++
+		if callCount == 2 {
+			return callbackErr
+		}
+		return nil
+	})
+
+	if err != callbackErr {
+		t.Errorf("expected callback error, got: %v", err)
+	}
+	if callCount != 2 {
+		t.Errorf("callback called %d times, expected 2", callCount)
+	}
+}
+
+func TestOllamaClient_ChatStream_MalformedJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "not valid json")
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	messages := []Message{{Role: "user", Content: "Hi"}}
+
+	_, err := client.ChatStream(messages, func(token string) error {
+		return nil
+	})
+
+	if err == nil {
+		t.Error("expected error for malformed JSON")
+	}
+	if !strings.Contains(err.Error(), "failed to parse streaming chunk") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestOllamaClient_ChatStream_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, "server error")
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	messages := []Message{{Role: "user", Content: "Hi"}}
+
+	_, err := client.ChatStream(messages, func(token string) error {
+		return nil
+	})
+
+	if err == nil {
+		t.Error("expected error for HTTP 500")
+	}
+	if !strings.Contains(err.Error(), "Ollama request failed") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
 func TestOllamaClient_Chat(t *testing.T) {
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
