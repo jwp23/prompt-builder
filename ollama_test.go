@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -88,6 +89,17 @@ func TestOllamaStreamChunk_Deserialization(t *testing.T) {
 			}
 		})
 	}
+}
+
+func fakeStreamingServer(chunks []string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for i, chunk := range chunks {
+			done := i == len(chunks)-1
+			fmt.Fprintf(w, `{"message":{"role":"assistant","content":%q},"done":%v}`+"\n",
+				chunk, done)
+			w.(http.Flusher).Flush()
+		}
+	}))
 }
 
 func TestOllamaClient_Chat(t *testing.T) {
