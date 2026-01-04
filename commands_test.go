@@ -1,7 +1,10 @@
 // commands_test.go
 package main
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestIsCommand(t *testing.T) {
 	tests := []struct {
@@ -45,6 +48,36 @@ func TestParseCommand(t *testing.T) {
 			got := parseCommand(tt.input)
 			if got != tt.wantCmd {
 				t.Errorf("parseCommand(%q) = %q, want %q", tt.input, got, tt.wantCmd)
+			}
+		})
+	}
+}
+
+func TestHandleCommand_Exit(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantExit   bool
+		wantOutput string
+	}{
+		{"bye", "/bye", true, "Goodbye\n"},
+		{"quit", "/quit", true, "Goodbye\n"},
+		{"exit", "/exit", true, "Goodbye\n"},
+		{"BYE uppercase", "/BYE", true, "Goodbye\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out bytes.Buffer
+			shouldExit, err := HandleCommand(tt.input, "", "", &out)
+			if err != nil {
+				t.Errorf("HandleCommand() error = %v", err)
+			}
+			if shouldExit != tt.wantExit {
+				t.Errorf("HandleCommand() shouldExit = %v, want %v", shouldExit, tt.wantExit)
+			}
+			if out.String() != tt.wantOutput {
+				t.Errorf("HandleCommand() output = %q, want %q", out.String(), tt.wantOutput)
 			}
 		})
 	}

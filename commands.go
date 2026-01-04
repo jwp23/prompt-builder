@@ -1,7 +1,11 @@
 // commands.go
 package main
 
-import "strings"
+import (
+	"fmt"
+	"io"
+	"strings"
+)
 
 // IsCommand returns true if input starts with a slash.
 func IsCommand(input string) bool {
@@ -16,4 +20,19 @@ func parseCommand(input string) string {
 	}
 	cmd := strings.TrimPrefix(trimmed, "/")
 	return strings.ToLower(cmd)
+}
+
+// HandleCommand executes a slash command.
+// Returns shouldExit=true if the conversation should end.
+// Writes output to the provided writer.
+func HandleCommand(input, lastResponse, clipboardCmd string, out io.Writer) (shouldExit bool, err error) {
+	cmd := parseCommand(input)
+
+	switch cmd {
+	case "bye", "quit", "exit":
+		fmt.Fprintln(out, "Goodbye")
+		return true, nil
+	default:
+		return false, nil
+	}
 }
