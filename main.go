@@ -185,6 +185,20 @@ func run(ctx context.Context, cli *CLI) error {
 			return fmt.Errorf("failed to read input: %v", err)
 		}
 
+		userInput = strings.TrimSpace(userInput)
+
+		if IsCommand(userInput) {
+			shouldExit, err := HandleCommand(userInput, response, clipboardCmd, os.Stdout)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			if shouldExit {
+				return nil
+			}
+			fmt.Print("> ")
+			continue
+		}
+
 		conv.AddUserMessage(userInput)
 	}
 }
