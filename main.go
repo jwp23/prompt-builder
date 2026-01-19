@@ -147,7 +147,7 @@ func run(ctx context.Context, cli *CLI) error {
 		}
 
 		// Get response from LLM with streaming
-		response, err := client.ChatStream(conv.Messages, func(token string) error {
+		response, err := client.ChatStreamWithSpinner(conv.Messages, isTTY() && !cli.Quiet, func(token string) error {
 			if !cli.Quiet {
 				fmt.Print(token)
 			}
