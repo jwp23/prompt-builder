@@ -6,7 +6,7 @@ Transform ideas into structured prompts using a local LLM.
 
 **1. Install Ollama and pull a model:**
 
-ollama pull llama3.2
+ollama pull gpt-oss:20b
 ```
 
 **2. Build:**
@@ -60,19 +60,25 @@ prompt-builder [flags] <idea>
 
 ```bash
 # Interactive (default)
-./prompt-builder "blog post about productivity"
+./prompt-builder I want a clean keto diety"
 
 # Different model
-./prompt-builder -m mistral "sales email template"
+./prompt-builder -m mistral "I want a clean keto diet"
 
 # Save to file
-./prompt-builder -q "api documentation" > prompt.md
+./prompt-builder -q "I want a clean keto diet" > prompt.md
 
 # Pipe without clipboard
-./prompt-builder "code review checklist" --no-copy > review.md
+./prompt-builder "I want a clean keto diet" --no-copy > review.md
 
-# Pipe directly to clipboard
-./prompt-builder -q "code review checklist" | wl-copy
+# Pipe directly to clipboard (macos)
+./prompt-builder "I want a clean keto diet" | pbcopy
+
+# Pipe directly to clipboard (Linux with Wayland)
+./prompt-builder "I want a clean keto diet" | wl-copy
+
+# Pipe directly to claude
+./prompt-builder "I want a clean keto diet" | claude
 ```
 
 ## Configuration
@@ -80,7 +86,7 @@ prompt-builder [flags] <idea>
 Create `~/.config/prompt-builder/config.yaml`:
 
 ```yaml
-model: llama3.2
+model: gpt-oss:20b
 system_prompt_file: ~/.config/prompt-builder/system-prompt.md
 
 # Optional
