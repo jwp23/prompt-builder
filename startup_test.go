@@ -91,3 +91,26 @@ func TestWaitForModel_Timeout(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestWaitForModel_ConnectionErrorThenSuccess(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount < 3 {
+			w.WriteHeader(http.StatusInternalServerError) // Simulate error
+		} else {
+			fmt.Fprintln(w, `{"models":[{"name":"llama3.2"}]}`)
+		}
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	err := WaitForModelWithTimeout(client, false, true, 5*time.Second)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if callCount < 3 {
+		t.Errorf("expected at least 3 calls, got %d", callCount)
+	}
+}
