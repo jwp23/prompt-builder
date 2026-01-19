@@ -136,16 +136,7 @@ func run(ctx context.Context, cli *CLI) error {
 
 	// Conversation loop
 	reader := bufio.NewReader(os.Stdin)
-	firstRequest := true
 	for {
-		// Wait for model on first request only
-		if firstRequest {
-			if err := WaitForModel(client, cli.Quiet, isTTY()); err != nil {
-				return fmt.Errorf("failed to connect to Ollama: %v", err)
-			}
-			firstRequest = false
-		}
-
 		// Get response from LLM with streaming
 		response, err := client.ChatStreamWithSpinner(conv.Messages, isTTY() && !cli.Quiet, func(token string) error {
 			if !cli.Quiet {
