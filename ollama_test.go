@@ -282,3 +282,27 @@ func TestOllamaClient_IsModelLoaded_ConnectionRefused(t *testing.T) {
 		t.Error("expected error for connection refused")
 	}
 }
+
+func TestOllamaClient_ChatStreamWithSpinner_StopsOnFirstToken(t *testing.T) {
+	server := fakeStreamingServer([]string{"Hello", " there", "!"})
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	messages := []Message{{Role: "user", Content: "Hi"}}
+
+	var tokens []string
+	response, err := client.ChatStreamWithSpinner(messages, false, func(token string) error {
+		tokens = append(tokens, token)
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response != "Hello there!" {
+		t.Errorf("response = %q, want %q", response, "Hello there!")
+	}
+	if len(tokens) != 3 {
+		t.Errorf("got %d tokens, want 3", len(tokens))
+	}
+}

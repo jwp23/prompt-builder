@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 type Message struct {
@@ -99,6 +100,27 @@ func (c *OllamaClient) ChatStream(messages []Message, onToken StreamCallback) (s
 	}
 
 	return accumulated.String(), nil
+}
+
+func (c *OllamaClient) ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error) {
+	var spinner *Spinner
+	var once sync.Once
+
+	if tty {
+		spinner = NewSpinnerWithTTY("Thinking...", tty)
+		spinner.Start()
+	}
+
+	wrappedCallback := func(token string) error {
+		once.Do(func() {
+			if spinner != nil {
+				spinner.Stop()
+			}
+		})
+		return onToken(token)
+	}
+
+	return c.ChatStream(messages, wrappedCallback)
 }
 
 func (c *OllamaClient) IsModelLoaded() (bool, error) {
