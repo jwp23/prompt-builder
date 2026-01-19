@@ -27,6 +27,14 @@ type OllamaStreamChunk struct {
 	Done    bool    `json:"done"`
 }
 
+type OllamaPsModel struct {
+	Name string `json:"name"`
+}
+
+type OllamaPsResponse struct {
+	Models []OllamaPsModel `json:"models"`
+}
+
 type StreamCallback func(token string) error
 
 type OllamaClient struct {
