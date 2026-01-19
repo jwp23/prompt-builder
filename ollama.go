@@ -100,3 +100,27 @@ func (c *OllamaClient) ChatStream(messages []Message, onToken StreamCallback) (s
 
 	return accumulated.String(), nil
 }
+
+func (c *OllamaClient) IsModelLoaded() (bool, error) {
+	resp, err := c.client.Get(c.Host + "/api/ps")
+	if err != nil {
+		return false, fmt.Errorf("failed to check model status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	var psResp OllamaPsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&psResp); err != nil {
+		return false, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	for _, model := range psResp.Models {
+		if model.Name == c.Model {
+			return true, nil
+		}
+	}
+	return false, nil
+}
