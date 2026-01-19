@@ -1,24 +1,33 @@
 # Animated Loading Spinner Design
 
-Add animated spinners for loading feedback during model startup and thinking phases.
+Add animated spinners for thinking feedback during LLM inference.
+
+## Key Discovery
+
+Ollama uses **lazy loading**: models don't load until the first request. Pre-checking model status with `/api/ps` doesn't work because:
+- Empty model list doesn't mean the model isn't available
+- Model only appears in `/api/ps` after it's loaded
+- Loading happens during the first chat request, not before
+
+**Result:** Combined loading and inference feedback into a single "Thinking..." spinner.
 
 ## Requirements
 
-- Spinner animation for "Loading \<model\>..." while waiting for model to load
-- Separate spinner for "Thinking..." while waiting for first response token
-- Clean transitions: each status replaces the previous on the same line
+- Spinner animation for "Thinking..." while waiting for response (covers both model loading and inference)
+- Clean transitions: spinner replaces on same line
 - Line clears completely when response starts streaming
 - No animation in non-TTY or quiet mode
 
 ## Spinner Component
 
-New file `spinner.go` with a reusable `Spinner` type:
+File `spinner.go` with a reusable `Spinner` type:
 
 ```go
 type Spinner struct {
     frames   []rune
     interval time.Duration
     message  string
+    tty      bool
     stopCh   chan struct{}
     doneCh   chan struct{}
 }
@@ -29,49 +38,35 @@ type Spinner struct {
 **Speed:** ~120ms per frame
 
 **Behavior:**
-- `Start()` launches a goroutine that prints `\r<frame> <message>` cycling through frames
+- `Start()` launches a goroutine that prints `\r<frame> <message>` cycling through frames (only if TTY)
 - `Stop()` signals stop and clears line with `\r` + spaces + `\r`
-- In non-TTY mode, `Start()` prints message once without animation, `Stop()` is no-op
-
-## Loading Model Flow
-
-Replace `printStartupStatus()` with `waitForModel(client *OllamaClient, quiet bool, tty bool) error`:
-
-1. If quiet or !tty: return immediately
-2. Check if model loaded via `IsModelLoaded()`
-   - Already loaded: skip to thinking phase
-   - Error: show "Connecting..." spinner, retry with backoff
-   - Not loaded: show "Loading \<model\>..." spinner
-3. Poll `IsModelLoaded()` every 500ms until model appears
-4. Stop spinner (clears line)
-5. Return nil
-
-**Timeout:** 30 seconds. If Ollama unreachable after timeout, exit with error message like "Could not connect to Ollama at localhost:11434".
+- Safe to call multiple times without panic
+- In non-TTY mode, `Start()` is a no-op and `Stop()` is safe
 
 ## Thinking Phase
 
-New method `StreamCompletionWithSpinner(prompt string, tty bool, callback func(string)) error`:
+Method `ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error)`:
 
 ```go
-func (c *OllamaClient) StreamCompletionWithSpinner(prompt string, tty bool, callback func(string)) error {
+func (c *OllamaClient) ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error) {
     var spinner *Spinner
     var once sync.Once
 
     if tty {
-        spinner = NewSpinner("Thinking...")
+        spinner = NewSpinnerWithTTY("Thinking...", tty)
         spinner.Start()
     }
 
-    wrappedCallback := func(token string) {
+    wrappedCallback := func(token string) error {
         once.Do(func() {
             if spinner != nil {
                 spinner.Stop()
             }
         })
-        callback(token)
+        return onToken(token)
     }
 
-    return c.streamCompletionInternal(prompt, wrappedCallback)
+    return c.ChatStream(messages, wrappedCallback)
 }
 ```
 
@@ -82,21 +77,22 @@ func (c *OllamaClient) StreamCompletionWithSpinner(prompt string, tty bool, call
 ```
 main()
 ├── Parse flags, load config, create client
-├── Check if TTY
 └── Conversation loop:
     ├── Read user input
-    ├── First iteration only:
-    │   └── waitForModel()  → "Loading..." or "Connecting..."
-    │       └── Error → print message, exit
-    ├── StreamCompletionWithSpinner()  → "Thinking..."
+    ├── ChatStreamWithSpinner()  → "Thinking..."
+    │   ├── [Ollama loads model if needed]
+    │   ├── [LLM generates response]
+    │   └── [On first token] → spinner stops
     └── Print response tokens
 ```
 
 ## Files Changed
 
 - `spinner.go` (new) - Spinner type and animation logic
-- `main.go` - Use waitForModel and StreamCompletionWithSpinner
-- `ollama.go` - Add StreamCompletionWithSpinner method
+- `spinner_test.go` (new) - Spinner tests
+- `main.go` - Call ChatStreamWithSpinner for responses
+- `ollama.go` - Add ChatStreamWithSpinner method
+- Removed: `startup.go`, `startup_test.go` - WaitForModel approach not viable with lazy loading
 
 ## Testing
 
@@ -104,15 +100,9 @@ main()
 - `Stop()` callable multiple times without panic
 - `Stop()` safe if `Start()` never called
 - Frame cycling logic
+- TTY guard behavior
 
-**waitForModel:**
-- Timeout behavior (client never returns loaded)
-- Immediate success (model already loaded)
-- Retry logic (connection fails then succeeds)
-- Quiet mode skips everything
-
-**StreamCompletionWithSpinner:**
+**ChatStreamWithSpinner:**
 - Spinner stops on first token (Stop called exactly once)
 - Non-TTY mode doesn't create spinner
-
-Use existing httptest patterns from `ollama_test.go`.
+- Returns complete response
