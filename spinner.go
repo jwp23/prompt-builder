@@ -12,15 +12,21 @@ type Spinner struct {
 	frames   []rune
 	interval time.Duration
 	message  string
+	tty      bool
 	stopCh   chan struct{}
 	doneCh   chan struct{}
 }
 
 func NewSpinner(message string) *Spinner {
+	return NewSpinnerWithTTY(message, true)
+}
+
+func NewSpinnerWithTTY(message string, tty bool) *Spinner {
 	return &Spinner{
 		frames:   spinnerFrames,
 		interval: 120 * time.Millisecond,
 		message:  message,
+		tty:      tty,
 		stopCh:   make(chan struct{}),
 		doneCh:   make(chan struct{}),
 	}
@@ -37,6 +43,9 @@ func (s *Spinner) Stop() {
 }
 
 func (s *Spinner) Start() {
+	if !s.tty {
+		return
+	}
 	go func() {
 		ticker := time.NewTicker(s.interval)
 		defer ticker.Stop()

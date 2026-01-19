@@ -37,3 +37,23 @@ func TestSpinner_StartStop(t *testing.T) {
 	s.Stop()
 	// Should complete without hanging
 }
+
+func TestNewSpinnerWithTTY_False(t *testing.T) {
+	s := NewSpinnerWithTTY("Loading", false)
+	if s.tty {
+		t.Error("expected tty to be false")
+	}
+}
+
+func TestNewSpinnerWithTTY_True(t *testing.T) {
+	s := NewSpinnerWithTTY("Loading", true)
+	if !s.tty {
+		t.Error("expected tty to be true")
+	}
+}
+
+func TestSpinner_StartNonTTY(t *testing.T) {
+	s := NewSpinnerWithTTY("Loading", false)
+	s.Start() // Should be no-op, not start goroutine
+	s.Stop()  // Should be safe
+}
