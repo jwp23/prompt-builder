@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestWaitForModel_AlreadyLoaded(t *testing.T) {
@@ -75,23 +74,6 @@ func TestWaitForModel_PollsUntilLoaded(t *testing.T) {
 	}
 }
 
-func TestWaitForModel_Timeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{"models":[]}`) // Never becomes loaded
-	}))
-	defer server.Close()
-
-	client := NewOllamaClient(server.URL, "llama3.2")
-	err := WaitForModelWithTimeout(client, false, true, 100*time.Millisecond)
-
-	if err == nil {
-		t.Fatal("expected timeout error")
-	}
-	if err.Error() != "timeout waiting for model to load" {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
 func TestWaitForModel_ConnectionErrorThenSuccess(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +87,7 @@ func TestWaitForModel_ConnectionErrorThenSuccess(t *testing.T) {
 	defer server.Close()
 
 	client := NewOllamaClient(server.URL, "llama3.2")
-	err := WaitForModelWithTimeout(client, false, true, 5*time.Second)
+	err := WaitForModel(client, false, true)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
