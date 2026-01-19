@@ -11,3 +11,17 @@ func TestNewSpinner(t *testing.T) {
 		t.Errorf("message = %q, want %q", s.message, "Loading...")
 	}
 }
+
+func TestSpinner_StopWithoutStart(t *testing.T) {
+	s := NewSpinner("Test")
+	// Should not panic
+	s.Stop()
+}
+
+func TestSpinner_StopMultipleTimes(t *testing.T) {
+	s := NewSpinner("Test")
+	// Should not panic on multiple Stop calls
+	s.Stop()
+	s.Stop()
+	s.Stop()
+}

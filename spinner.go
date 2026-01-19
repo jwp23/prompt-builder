@@ -21,3 +21,13 @@ func NewSpinner(message string) *Spinner {
 		doneCh:   make(chan struct{}),
 	}
 }
+
+func (s *Spinner) Stop() {
+	select {
+	case <-s.stopCh:
+		// Already stopped
+		return
+	default:
+		close(s.stopCh)
+	}
+}
