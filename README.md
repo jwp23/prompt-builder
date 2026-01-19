@@ -2,6 +2,11 @@
 
 Transform ideas into structured prompts using a local LLM.
 
+## AI Generation
+This was developed wtih AI using the [superpowers](https://github.com/obra/superpowers) workflow.
+
+The system proompt I tested it with is based on the RGCOA format taught by [withKmo.com](https://withkmo.com/).
+
 ## Quick Start
 
 **1. Install Ollama and pull a model:**
