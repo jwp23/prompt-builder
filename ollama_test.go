@@ -206,3 +206,22 @@ func TestOllamaClient_ChatStream_HTTPError(t *testing.T) {
 	}
 }
 
+func TestOllamaClient_IsModelLoaded_True(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/ps" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		fmt.Fprintln(w, `{"models":[{"name":"llama3.2"}]}`)
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	loaded, err := client.IsModelLoaded()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !loaded {
+		t.Error("expected model to be loaded")
+	}
+}
