@@ -273,3 +273,12 @@ func TestOllamaClient_IsModelLoaded_Error(t *testing.T) {
 		t.Error("expected error for HTTP 500")
 	}
 }
+
+func TestOllamaClient_IsModelLoaded_ConnectionRefused(t *testing.T) {
+	client := NewOllamaClient("http://localhost:1", "llama3.2")
+	_, err := client.IsModelLoaded()
+
+	if err == nil {
+		t.Error("expected error for connection refused")
+	}
+}
