@@ -82,6 +82,24 @@ func isTTY() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
+func printStartupStatus(client *OllamaClient, quiet bool, tty bool) {
+	if quiet || !tty {
+		return
+	}
+
+	loaded, err := client.IsModelLoaded()
+	if err != nil {
+		fmt.Println("Connecting...")
+		return
+	}
+
+	if loaded {
+		fmt.Println("Thinking...")
+	} else {
+		fmt.Printf("Loading %s...\n", client.Model)
+	}
+}
+
 func run(ctx context.Context, cli *CLI) error {
 	_ = ctx // Context available for future cancellation support
 	// Determine config path
