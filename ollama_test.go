@@ -225,3 +225,20 @@ func TestOllamaClient_IsModelLoaded_True(t *testing.T) {
 		t.Error("expected model to be loaded")
 	}
 }
+
+func TestOllamaClient_IsModelLoaded_False(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `{"models":[{"name":"other-model"}]}`)
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	loaded, err := client.IsModelLoaded()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if loaded {
+		t.Error("expected model to not be loaded")
+	}
+}
