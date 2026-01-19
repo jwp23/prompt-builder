@@ -259,3 +259,17 @@ func TestOllamaClient_IsModelLoaded_EmptyList(t *testing.T) {
 		t.Error("expected model to not be loaded with empty list")
 	}
 }
+
+func TestOllamaClient_IsModelLoaded_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	_, err := client.IsModelLoaded()
+
+	if err == nil {
+		t.Error("expected error for HTTP 500")
+	}
+}
