@@ -11,6 +11,9 @@ The system proompt I tested it with is based on the RGCOA format taught by [with
 
 **1. Install Ollama and pull a model:**
 
+Follow the instructions [https://ollama.com/download](https://ollama.com/download)
+
+```bash
 ollama pull gpt-oss:20b
 ```
 
@@ -28,13 +31,8 @@ go build -o prompt-builder .
 mkdir -p ~/.config/prompt-builder
 
 cat > ~/.config/prompt-builder/config.yaml << 'EOF'
-model: llama3.2
+model: gpt-oss:20b
 system_prompt_file: ~/.config/prompt-builder/system-prompt.md
-EOF
-
-cat > ~/.config/prompt-builder/system-prompt.md << 'EOF'
-You help create well-structured prompts. Ask clarifying questions,
-then provide the final prompt in a code block.
 EOF
 ```
 
@@ -44,7 +42,7 @@ EOF
 ./prompt-builder "a prompt for writing technical docs"
 ```
 
-The tool asks clarifying questions, generates a structured prompt, and copies it to your clipboard.
+The tool uses the system prompt to generate a structured prompt, and copies it to your clipboard.
 
 ## Usage
 
