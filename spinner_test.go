@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestNewSpinner(t *testing.T) {
 	s := NewSpinner("Loading...")
@@ -24,4 +27,13 @@ func TestSpinner_StopMultipleTimes(t *testing.T) {
 	s.Stop()
 	s.Stop()
 	s.Stop()
+}
+
+func TestSpinner_StartStop(t *testing.T) {
+	s := NewSpinner("Loading")
+	s.Start()
+	// Give it a moment to run
+	time.Sleep(50 * time.Millisecond)
+	s.Stop()
+	// Should complete without hanging
 }

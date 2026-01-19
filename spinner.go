@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 var spinnerFrames = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
@@ -30,4 +34,30 @@ func (s *Spinner) Stop() {
 	default:
 		close(s.stopCh)
 	}
+}
+
+func (s *Spinner) Start() {
+	go func() {
+		ticker := time.NewTicker(s.interval)
+		defer ticker.Stop()
+		defer close(s.doneCh)
+
+		frame := 0
+		for {
+			select {
+			case <-s.stopCh:
+				s.clearLine()
+				return
+			case <-ticker.C:
+				fmt.Printf("\r%c %s", s.frames[frame], s.message)
+				frame = (frame + 1) % len(s.frames)
+			}
+		}
+	}()
+}
+
+func (s *Spinner) clearLine() {
+	// Clear the line: carriage return, spaces, carriage return
+	clearLen := len(s.message) + 3 // frame + space + message
+	fmt.Printf("\r%s\r", strings.Repeat(" ", clearLen))
 }
