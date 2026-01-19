@@ -154,7 +154,14 @@ func run(ctx context.Context, cli *CLI) error {
 
 	// Conversation loop
 	reader := bufio.NewReader(os.Stdin)
+	firstRequest := true
 	for {
+		// Show status on first request only
+		if firstRequest {
+			printStartupStatus(client, cli.Quiet, isTTY())
+			firstRequest = false
+		}
+
 		// Get response from LLM with streaming
 		response, err := client.ChatStream(conv.Messages, func(token string) error {
 			if !cli.Quiet {
