@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestWaitForModel_AlreadyLoaded(t *testing.T) {
@@ -71,5 +72,22 @@ func TestWaitForModel_PollsUntilLoaded(t *testing.T) {
 	}
 	if callCount < 3 {
 		t.Errorf("expected at least 3 calls, got %d", callCount)
+	}
+}
+
+func TestWaitForModel_Timeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `{"models":[]}`) // Never becomes loaded
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	err := WaitForModelWithTimeout(client, false, true, 100*time.Millisecond)
+
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if err.Error() != "timeout waiting for model to load" {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
