@@ -50,3 +50,26 @@ func TestWaitForModel_NonTTY(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestWaitForModel_PollsUntilLoaded(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount < 3 {
+			fmt.Fprintln(w, `{"models":[]}`) // Not loaded yet
+		} else {
+			fmt.Fprintln(w, `{"models":[{"name":"llama3.2"}]}`) // Now loaded
+		}
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "llama3.2")
+	err := WaitForModel(client, false, true)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if callCount < 3 {
+		t.Errorf("expected at least 3 calls, got %d", callCount)
+	}
+}
