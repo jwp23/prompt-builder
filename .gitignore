@@ -4,3 +4,6 @@
 # Go workspace
 go.work
 go.work.sum
+
+# Git worktrees
+.worktrees/
