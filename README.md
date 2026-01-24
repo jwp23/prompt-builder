@@ -17,12 +17,12 @@ Follow the instructions [https://ollama.com/download](https://ollama.com/downloa
 ollama pull gpt-oss:20b
 ```
 
-**2. Build:**
+**2. Install:**
 
 ```bash
-git clone https://github.com/mordant23/prompt-builder.git
+git clone https://github.com/jwp23/prompt-builder.git
 cd prompt-builder
-go build -o prompt-builder .
+go install ./cmd/prompt-builder
 ```
 
 **3. Configure:**
@@ -39,7 +39,7 @@ EOF
 **4. Run:**
 
 ```bash
-./prompt-builder "a prompt for writing technical docs"
+prompt-builder "a prompt for writing technical docs"
 ```
 
 The tool uses the system prompt to generate a structured prompt, and copies it to your clipboard.
@@ -63,25 +63,25 @@ prompt-builder [flags] <idea>
 
 ```bash
 # Interactive (default)
-./prompt-builder I want a clean keto diety"
+prompt-builder I want a clean keto diety"
 
 # Different model
-./prompt-builder -m mistral "I want a clean keto diet"
+prompt-builder -m mistral "I want a clean keto diet"
 
 # Save to file
-./prompt-builder -q "I want a clean keto diet" > prompt.md
+prompt-builder -q "I want a clean keto diet" > prompt.md
 
 # Pipe without clipboard
-./prompt-builder "I want a clean keto diet" --no-copy > review.md
+prompt-builder "I want a clean keto diet" --no-copy > review.md
 
 # Pipe directly to clipboard (macos)
-./prompt-builder "I want a clean keto diet" | pbcopy
+prompt-builder "I want a clean keto diet" | pbcopy
 
 # Pipe directly to clipboard (Linux with Wayland)
-./prompt-builder "I want a clean keto diet" | wl-copy
+prompt-builder "I want a clean keto diet" | wl-copy
 
 # Pipe directly to claude
-./prompt-builder "I want a clean keto diet" | claude
+prompt-builder "I want a clean keto diet" | claude
 ```
 
 ## Configuration
@@ -142,6 +142,29 @@ Commands:
 | 2 | Ollama connection failed |
 | 3 | No model specified |
 | 130 | Interrupted (Ctrl+C) |
+
+## Project Structure
+
+```
+prompt-builder/
+├── cmd/prompt-builder/   # CLI source code
+├── docs/                 # Documentation
+├── go.mod
+└── README.md
+```
+
+## Development
+
+```bash
+# Install locally
+go install ./cmd/prompt-builder
+
+# Run tests
+go test ./cmd/prompt-builder
+
+# Run tests with coverage
+go test -cover ./cmd/prompt-builder
+```
 
 ## Requirements
 
