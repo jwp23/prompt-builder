@@ -2,8 +2,11 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -47,5 +50,169 @@ You are a test assistant.
 
 	if len(prompt) == 0 {
 		t.Error("system prompt is empty")
+	}
+}
+
+func TestRun_SingleTurnComplete(t *testing.T) {
+	// Create temp config and prompt files
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	// Response with code block = complete
+	completeResponse := "Here is your prompt:\n```\nTest prompt content\n```"
+
+	deps := newTestDeps(
+		withResponses(completeResponse),
+		withTTY(false), // Pipe mode exits after one response
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout(deps)
+	if !strings.Contains(out, "Test prompt content") {
+		t.Errorf("expected response in stdout, got: %s", out)
+	}
+}
+
+func TestRun_MultiTurnConversation(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	// First response asks a question, second completes
+	clarifyingResponse := "What language would you like the prompt in?"
+
+	deps := newTestDeps(
+		withResponses(clarifyingResponse),
+		withStdin("/bye\n"), // User exits after first response
+		withTTY(true),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout(deps)
+	if !strings.Contains(out, "What language") {
+		t.Errorf("expected clarifying question in stdout, got: %s", out)
+	}
+}
+
+func TestRun_PipeMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	completeResponse := "Here is your prompt:\n```\nPipe mode prompt\n```"
+
+	deps := newTestDeps(
+		withResponses(completeResponse),
+		withTTY(false), // Pipe mode
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	// Capture messages sent to mock
+	mock := deps.Client.(*mockOllama)
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify "Generate without questions" prefix was added
+	if mock.calls != 1 {
+		t.Errorf("expected 1 call, got %d", mock.calls)
+	}
+}
+
+func TestRun_PipeMode_Quiet(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	completeResponse := "Here is your prompt:\n```\nQuiet mode output\n```"
+
+	deps := newTestDeps(
+		withResponses(completeResponse),
+		withTTY(false),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+		Quiet:      true,
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout(deps)
+	// In quiet mode, only the code block content should be printed
+	if !strings.Contains(out, "Quiet mode output") {
+		t.Errorf("expected code block in stdout, got: %s", out)
+	}
+	// Should NOT contain the markdown fence
+	if strings.Contains(out, "```") {
+		t.Errorf("should not contain markdown fence in quiet mode, got: %s", out)
+	}
+}
+
+func TestRun_OllamaError(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	deps := newTestDeps(
+		withOllamaError(errors.New("connection refused")),
+		withTTY(false),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "Ollama") {
+		t.Errorf("expected Ollama error, got: %v", err)
 	}
 }
