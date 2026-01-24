@@ -1,0 +1,2 @@
+model: test-model
+system_prompt_file: testdata/prompts/system.txt
