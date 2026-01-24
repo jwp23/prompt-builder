@@ -2,7 +2,7 @@
 package main
 
 import (
-	// "context" // added in Task 2
+	"context"
 	"testing"
 )
 
@@ -10,7 +10,7 @@ func TestOllamaClient_ImplementsOllamaChatter(t *testing.T) {
 	var _ OllamaChatter = (*OllamaClient)(nil)
 }
 
-// TestRunWithDeps_Exists is added in Task 2
-// func TestRunWithDeps_Exists(t *testing.T) {
-// 	var _ func(context.Context, *CLI, *Deps) error = runWithDeps
-// }
+func TestRunWithDeps_Exists(t *testing.T) {
+	// Just verify the function signature exists
+	var _ func(context.Context, *CLI, *Deps) error = runWithDeps
+}

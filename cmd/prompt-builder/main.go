@@ -82,8 +82,9 @@ func isTTY() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-func run(ctx context.Context, cli *CLI) error {
+func runWithDeps(ctx context.Context, cli *CLI, deps *Deps) error {
 	_ = ctx // Context available for future cancellation support
+
 	// Determine config path
 	configPath := cli.ConfigPath
 	if configPath == "" {
@@ -95,7 +96,8 @@ func run(ctx context.Context, cli *CLI) error {
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF", configPath)
+			fmt.Fprintf(deps.Stderr, "config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF\n", configPath)
+			return fmt.Errorf("config file not found: %s", configPath)
 		}
 		return fmt.Errorf("invalid config: %v", err)
 	}
@@ -117,30 +119,25 @@ func run(ctx context.Context, cli *CLI) error {
 		return fmt.Errorf("system prompt not found: %s", promptPath)
 	}
 
-	// Detect clipboard
-	clipboardCmd := DetectClipboardCmd(cfg.ClipboardCmd)
-
-	// Initialize Ollama client
-	client := NewOllamaClient(cfg.OllamaHost, cfg.Model)
-
 	// Initialize conversation
 	conv := NewConversation(string(systemPrompt))
 
 	// Prepare user's idea
 	userIdea := cli.Idea
-	if !isTTY() {
+	tty := deps.IsTTY()
+	if !tty {
 		// Pipe mode: ask for immediate generation
 		userIdea = "Generate your best prompt without asking clarifying questions. User's idea: " + userIdea
 	}
 	conv.AddUserMessage(userIdea)
 
 	// Conversation loop
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(deps.Stdin)
 	for {
 		// Get response from LLM with streaming
-		response, err := client.ChatStreamWithSpinner(conv.Messages, isTTY() && !cli.Quiet, func(token string) error {
+		response, err := deps.Client.ChatStreamWithSpinner(conv.Messages, tty && !cli.Quiet, func(token string) error {
 			if !cli.Quiet {
-				fmt.Print(token)
+				fmt.Fprint(deps.Stdout, token)
 			}
 			return nil
 		})
@@ -148,18 +145,18 @@ func run(ctx context.Context, cli *CLI) error {
 			return fmt.Errorf("Ollama request failed: %v", err)
 		}
 		if !cli.Quiet {
-			fmt.Println() // newline after streaming completes
+			fmt.Fprintln(deps.Stdout) // newline after streaming completes
 		}
 
 		conv.AddAssistantMessage(response)
 
 		// Pipe mode: output result and exit (can't continue conversation)
-		if !isTTY() {
+		if !tty {
 			if IsComplete(response) {
 				if cli.Quiet {
 					// In quiet mode, print only the extracted code block
 					finalPrompt := ExtractLastCodeBlock(response)
-					fmt.Println(finalPrompt)
+					fmt.Fprintln(deps.Stdout, finalPrompt)
 				}
 				// Non-quiet mode already streamed the response
 				return nil
@@ -167,9 +164,7 @@ func run(ctx context.Context, cli *CLI) error {
 			return fmt.Errorf("LLM requested clarification but stdin is not a TTY")
 		}
 
-		// Interactive mode: response already streamed above
-
-		fmt.Print("> ")
+		fmt.Fprint(deps.Stdout, "> ")
 		userInput, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("failed to read input: %v", err)
@@ -178,19 +173,54 @@ func run(ctx context.Context, cli *CLI) error {
 		userInput = strings.TrimSpace(userInput)
 
 		if IsCommand(userInput) {
-			shouldExit, err := HandleCommand(userInput, response, clipboardCmd, os.Stdout)
+			shouldExit, err := HandleCommandWithClipboard(userInput, response, deps.Clipboard, deps.Stdout)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				fmt.Fprintln(deps.Stderr, err)
 			}
 			if shouldExit {
 				return nil
 			}
-			fmt.Print("> ")
+			fmt.Fprint(deps.Stdout, "> ")
 			continue
 		}
 
 		conv.AddUserMessage(userInput)
 	}
+}
+
+func run(ctx context.Context, cli *CLI) error {
+	// Determine config path for client initialization
+	configPath := cli.ConfigPath
+	if configPath == "" {
+		configPath = defaultConfigPath()
+	}
+	configPath = ExpandPath(configPath)
+
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF", configPath)
+		}
+		return fmt.Errorf("invalid config: %v", err)
+	}
+
+	// Apply CLI model override
+	model := cfg.Model
+	if cli.Model != "" {
+		model = cli.Model
+	}
+
+	// Create real dependencies
+	deps := &Deps{
+		Client:    NewOllamaClient(cfg.OllamaHost, model),
+		Stdin:     os.Stdin,
+		Stdout:    os.Stdout,
+		Stderr:    os.Stderr,
+		Clipboard: NewClipboardWriter(DetectClipboardCmd(cfg.ClipboardCmd)),
+		IsTTY:     isTTY,
+	}
+
+	return runWithDeps(ctx, cli, deps)
 }
 
 func main() {

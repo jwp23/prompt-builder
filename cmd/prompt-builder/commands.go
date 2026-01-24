@@ -60,3 +60,40 @@ func HandleCommand(input, lastResponse, clipboardCmd string, out io.Writer) (sho
 		return false, fmt.Errorf("Unknown command: /%s. Type /help for available commands.", cmd)
 	}
 }
+
+// HandleCommandWithClipboard is like HandleCommand but uses ClipboardWriter interface.
+func HandleCommandWithClipboard(input, lastResponse string, clipboard ClipboardWriter, out io.Writer) (shouldExit bool, err error) {
+	cmd := parseCommand(input)
+
+	switch cmd {
+	case "bye", "quit", "exit":
+		fmt.Fprintln(out, "Goodbye")
+		return true, nil
+	case "copy":
+		codeBlock := ExtractLastCodeBlock(lastResponse)
+		if lastResponse == "" {
+			return false, fmt.Errorf("No response to copy from")
+		}
+		if codeBlock == "" {
+			return false, fmt.Errorf("No code block to copy")
+		}
+		if clipboard == nil {
+			return false, fmt.Errorf("Clipboard not available")
+		}
+		if err := clipboard.Write(codeBlock); err != nil {
+			return false, fmt.Errorf("Clipboard not available")
+		}
+		fmt.Fprintln(out, "\u2713 Copied to clipboard")
+		return true, nil
+	case "help":
+		fmt.Fprintln(out, `Commands:
+  /copy   Copy last code block to clipboard and exit
+  /bye    Exit conversation
+  /quit   Exit conversation
+  /exit   Exit conversation
+  /help   Show this help`)
+		return false, nil
+	default:
+		return false, fmt.Errorf("Unknown command: /%s. Type /help for available commands.", cmd)
+	}
+}
