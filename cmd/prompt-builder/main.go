@@ -164,27 +164,30 @@ func runWithDeps(ctx context.Context, cli *CLI, deps *Deps) error {
 			return fmt.Errorf("LLM requested clarification but stdin is not a TTY")
 		}
 
-		fmt.Fprint(deps.Stdout, "> ")
-		userInput, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("failed to read input: %v", err)
-		}
-
-		userInput = strings.TrimSpace(userInput)
-
-		if IsCommand(userInput) {
-			shouldExit, err := HandleCommandWithClipboard(userInput, response, deps.Clipboard, deps.Stdout)
-			if err != nil {
-				fmt.Fprintln(deps.Stderr, err)
-			}
-			if shouldExit {
-				return nil
-			}
+		// Input loop: handle commands without calling LLM again
+		for {
 			fmt.Fprint(deps.Stdout, "> ")
-			continue
-		}
+			userInput, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("failed to read input: %v", err)
+			}
 
-		conv.AddUserMessage(userInput)
+			userInput = strings.TrimSpace(userInput)
+
+			if IsCommand(userInput) {
+				shouldExit, err := HandleCommandWithClipboard(userInput, response, deps.Clipboard, deps.Stdout)
+				if err != nil {
+					fmt.Fprintln(deps.Stderr, err)
+				}
+				if shouldExit {
+					return nil
+				}
+				continue // Stay in input loop, don't call LLM
+			}
+
+			conv.AddUserMessage(userInput)
+			break // Exit input loop, call LLM with new message
+		}
 	}
 }
 

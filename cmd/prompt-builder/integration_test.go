@@ -216,3 +216,165 @@ func TestRun_OllamaError(t *testing.T) {
 		t.Errorf("expected Ollama error, got: %v", err)
 	}
 }
+
+func TestCommand_Copy(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	responseWithCode := "Here is code:\n```\ncode to copy\n```"
+
+	deps := newTestDeps(
+		withResponses(responseWithCode),
+		withStdin("/copy\n"),
+		withTTY(true),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	copied := clipboardWritten(deps)
+	if copied != "code to copy\n" {
+		t.Errorf("expected 'code to copy\\n' in clipboard, got: %q", copied)
+	}
+}
+
+func TestCommand_CopyNoResponse(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	// Response without code block
+	responseNoCode := "I need more information. What language?"
+
+	deps := newTestDeps(
+		withResponses(responseNoCode),
+		withStdin("/copy\n/bye\n"),
+		withTTY(true),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have error message in stderr
+	errOut := stderr(deps)
+	if !strings.Contains(errOut, "No code block") {
+		t.Errorf("expected 'No code block' error, got: %s", errOut)
+	}
+}
+
+func TestCommand_Help(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	response := "What would you like?"
+
+	deps := newTestDeps(
+		withResponses(response),
+		withStdin("/help\n/bye\n"),
+		withTTY(true),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout(deps)
+	if !strings.Contains(out, "/copy") || !strings.Contains(out, "/bye") {
+		t.Errorf("expected help text with commands, got: %s", out)
+	}
+}
+
+func TestCommand_Quit(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	response := "What would you like?"
+
+	deps := newTestDeps(
+		withResponses(response),
+		withStdin("/quit\n"),
+		withTTY(true),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout(deps)
+	if !strings.Contains(out, "Goodbye") {
+		t.Errorf("expected 'Goodbye', got: %s", out)
+	}
+}
+
+func TestCommand_Unknown(t *testing.T) {
+	tmpDir := t.TempDir()
+	promptFile := filepath.Join(tmpDir, "prompt.txt")
+	configFile := filepath.Join(tmpDir, "config.yaml")
+
+	os.WriteFile(promptFile, []byte("You are a test assistant."), 0644)
+	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
+
+	response := "What would you like?"
+
+	deps := newTestDeps(
+		withResponses(response),
+		withStdin("/foo\n/bye\n"),
+		withTTY(true),
+	)
+
+	cli := &CLI{
+		ConfigPath: configFile,
+		Idea:       "test idea",
+	}
+
+	err := runWithDeps(context.Background(), cli, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	errOut := stderr(deps)
+	if !strings.Contains(errOut, "Unknown command") {
+		t.Errorf("expected 'Unknown command' error, got: %s", errOut)
+	}
+}
