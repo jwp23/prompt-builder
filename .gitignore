@@ -1,6 +1,3 @@
-# Go binary
-prompt-builder
-
 # Test binaries
 *.test
 
