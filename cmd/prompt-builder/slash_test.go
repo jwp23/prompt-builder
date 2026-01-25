@@ -1,10 +1,109 @@
-// commands_test.go
+// slash_test.go
 package main
 
 import (
 	"bytes"
+	"os/exec"
+	"strings"
 	"testing"
 )
+
+func TestDetectClipboardCmd(t *testing.T) {
+	// This test verifies the detection logic
+	// Actual availability depends on system
+	cmd := DetectClipboardCmd("")
+
+	// Should return something or empty string
+	// Can't assert exact value as it's system-dependent
+	t.Logf("Detected clipboard command: %q", cmd)
+
+	// If a command is returned, it should be executable
+	if cmd != "" {
+		parts := strings.Split(cmd, " ")
+		_, err := exec.LookPath(parts[0])
+		if err != nil {
+			t.Errorf("Detected command %q but binary not found", parts[0])
+		}
+	}
+}
+
+func TestDetectClipboardCmd_Override(t *testing.T) {
+	cmd := DetectClipboardCmd("custom-clipboard")
+	if cmd != "custom-clipboard" {
+		t.Errorf("DetectClipboardCmd with override = %q, want %q", cmd, "custom-clipboard")
+	}
+}
+
+func TestExtractLastCodeBlock(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "single code block",
+			input: "Here is your prompt:\n```\n# Role\nYou are an expert.\n```\n",
+			want:  "# Role\nYou are an expert.\n",
+		},
+		{
+			name:  "multiple code blocks - returns last",
+			input: "Example:\n```\nfirst block\n```\n\nHere is the final:\n```\nsecond block\n```\n",
+			want:  "second block\n",
+		},
+		{
+			name:  "no code block",
+			input: "Just plain text",
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractLastCodeBlock(tt.input)
+			if got != tt.want {
+				t.Errorf("ExtractLastCodeBlock() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsComplete(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "code block without question - complete",
+			input: "Here is your prompt:\n```\ncontent\n```\n",
+			want:  true,
+		},
+		{
+			name:  "code block with trailing question - not complete",
+			input: "Here is a draft:\n```\ncontent\n```\nDoes this look right?",
+			want:  false,
+		},
+		{
+			name:  "question only - not complete",
+			input: "What is your target audience?",
+			want:  false,
+		},
+		{
+			name:  "no code block no question - not complete",
+			input: "Let me think about that.",
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsComplete(tt.input)
+			if got != tt.want {
+				t.Errorf("IsComplete() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestIsCommand(t *testing.T) {
 	tests := []struct {
