@@ -3,12 +3,6 @@ package main
 
 import "io"
 
-// OllamaChatter abstracts the Ollama client for testing.
-type OllamaChatter interface {
-	ChatStream(messages []Message, onToken StreamCallback) (string, error)
-	ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error)
-}
-
 // ClipboardWriter abstracts clipboard operations for testing.
 type ClipboardWriter interface {
 	Write(text string) error

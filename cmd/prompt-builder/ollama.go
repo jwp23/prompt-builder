@@ -10,7 +10,14 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
+
+// OllamaChatter abstracts the Ollama client for testing.
+type OllamaChatter interface {
+	ChatStream(messages []Message, onToken StreamCallback) (string, error)
+	ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error)
+}
 
 type Message struct {
 	Role    string `json:"role"`
@@ -145,4 +152,89 @@ func (c *OllamaClient) IsModelLoaded() (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+type Conversation struct {
+	Messages []Message
+}
+
+func NewConversation(systemPrompt string) *Conversation {
+	return &Conversation{
+		Messages: []Message{
+			{Role: "system", Content: systemPrompt},
+		},
+	}
+}
+
+func (c *Conversation) AddUserMessage(content string) {
+	c.Messages = append(c.Messages, Message{Role: "user", Content: content})
+}
+
+func (c *Conversation) AddAssistantMessage(content string) {
+	c.Messages = append(c.Messages, Message{Role: "assistant", Content: content})
+}
+
+var spinnerFrames = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+
+type Spinner struct {
+	frames   []rune
+	interval time.Duration
+	message  string
+	tty      bool
+	stopCh   chan struct{}
+	doneCh   chan struct{}
+}
+
+func NewSpinner(message string) *Spinner {
+	return NewSpinnerWithTTY(message, true)
+}
+
+func NewSpinnerWithTTY(message string, tty bool) *Spinner {
+	return &Spinner{
+		frames:   spinnerFrames,
+		interval: 120 * time.Millisecond,
+		message:  message,
+		tty:      tty,
+		stopCh:   make(chan struct{}),
+		doneCh:   make(chan struct{}),
+	}
+}
+
+func (s *Spinner) Stop() {
+	select {
+	case <-s.stopCh:
+		// Already stopped
+		return
+	default:
+		close(s.stopCh)
+	}
+}
+
+func (s *Spinner) Start() {
+	if !s.tty {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(s.interval)
+		defer ticker.Stop()
+		defer close(s.doneCh)
+
+		frame := 0
+		for {
+			select {
+			case <-s.stopCh:
+				s.clearLine()
+				return
+			case <-ticker.C:
+				fmt.Printf("\r%c %s", s.frames[frame], s.message)
+				frame = (frame + 1) % len(s.frames)
+			}
+		}
+	}()
+}
+
+func (s *Spinner) clearLine() {
+	// Clear the line: carriage return, spaces, carriage return
+	clearLen := len(s.message) + 3 // frame + space + message
+	fmt.Printf("\r%s\r", strings.Repeat(" ", clearLen))
 }
