@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOllamaRequest_Serialization(t *testing.T) {
@@ -305,4 +306,85 @@ func TestOllamaClient_ChatStreamWithSpinner_StopsOnFirstToken(t *testing.T) {
 	if len(tokens) != 3 {
 		t.Errorf("got %d tokens, want 3", len(tokens))
 	}
+}
+
+func TestConversation_AddMessage(t *testing.T) {
+	conv := NewConversation("You are helpful.")
+
+	// Should start with system message
+	if len(conv.Messages) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(conv.Messages))
+	}
+	if conv.Messages[0].Role != "system" {
+		t.Errorf("first message role = %q, want %q", conv.Messages[0].Role, "system")
+	}
+
+	conv.AddUserMessage("Hello")
+	if len(conv.Messages) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(conv.Messages))
+	}
+	if conv.Messages[1].Role != "user" {
+		t.Errorf("second message role = %q, want %q", conv.Messages[1].Role, "user")
+	}
+
+	conv.AddAssistantMessage("Hi there!")
+	if len(conv.Messages) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(conv.Messages))
+	}
+	if conv.Messages[2].Role != "assistant" {
+		t.Errorf("third message role = %q, want %q", conv.Messages[2].Role, "assistant")
+	}
+}
+
+func TestNewSpinner(t *testing.T) {
+	s := NewSpinner("Loading...")
+	if s == nil {
+		t.Fatal("NewSpinner returned nil")
+	}
+	if s.message != "Loading..." {
+		t.Errorf("message = %q, want %q", s.message, "Loading...")
+	}
+}
+
+func TestSpinner_StopWithoutStart(t *testing.T) {
+	s := NewSpinner("Test")
+	// Should not panic
+	s.Stop()
+}
+
+func TestSpinner_StopMultipleTimes(t *testing.T) {
+	s := NewSpinner("Test")
+	// Should not panic on multiple Stop calls
+	s.Stop()
+	s.Stop()
+	s.Stop()
+}
+
+func TestSpinner_StartStop(t *testing.T) {
+	s := NewSpinner("Loading")
+	s.Start()
+	// Give it a moment to run
+	time.Sleep(50 * time.Millisecond)
+	s.Stop()
+	// Should complete without hanging
+}
+
+func TestNewSpinnerWithTTY_False(t *testing.T) {
+	s := NewSpinnerWithTTY("Loading", false)
+	if s.tty {
+		t.Error("expected tty to be false")
+	}
+}
+
+func TestNewSpinnerWithTTY_True(t *testing.T) {
+	s := NewSpinnerWithTTY("Loading", true)
+	if !s.tty {
+		t.Error("expected tty to be true")
+	}
+}
+
+func TestSpinner_StartNonTTY(t *testing.T) {
+	s := NewSpinnerWithTTY("Loading", false)
+	s.Start() // Should be no-op, not start goroutine
+	s.Stop()  // Should be safe
 }
