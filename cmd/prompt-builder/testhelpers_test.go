@@ -57,12 +57,13 @@ type testOption func(*Deps)
 // newTestDeps creates Deps with mocks for testing.
 func newTestDeps(opts ...testOption) *Deps {
 	d := &Deps{
-		Client:    &mockOllama{},
-		Stdin:     strings.NewReader(""),
-		Stdout:    &bytes.Buffer{},
-		Stderr:    &bytes.Buffer{},
-		Clipboard: &mockClipboard{},
-		IsTTY:     func() bool { return true },
+		Client:       &mockOllama{},
+		Stdin:        strings.NewReader(""),
+		Stdout:       &bytes.Buffer{},
+		Stderr:       &bytes.Buffer{},
+		Clipboard:    &mockClipboard{},
+		IsTTY:        func() bool { return true },
+		SystemPrompt: "You are a test assistant.",
 	}
 	for _, opt := range opts {
 		opt(d)
@@ -91,18 +92,6 @@ func withStdin(input string) testOption {
 func withTTY(tty bool) testOption {
 	return func(d *Deps) {
 		d.IsTTY = func() bool { return tty }
-	}
-}
-
-func withClipboardError(err error) testOption {
-	return func(d *Deps) {
-		d.Clipboard = &mockClipboard{err: err}
-	}
-}
-
-func withNoClipboard() testOption {
-	return func(d *Deps) {
-		d.Clipboard = nil
 	}
 }
 

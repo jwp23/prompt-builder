@@ -152,7 +152,7 @@ func TestParseCommand(t *testing.T) {
 	}
 }
 
-func TestHandleCommand_Exit(t *testing.T) {
+func TestHandleCommandWithClipboard_Exit(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      string
@@ -168,45 +168,45 @@ func TestHandleCommand_Exit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out bytes.Buffer
-			shouldExit, err := HandleCommand(tt.input, "", "", &out)
+			shouldExit, err := HandleCommandWithClipboard(tt.input, "", nil, &out)
 			if err != nil {
-				t.Errorf("HandleCommand() error = %v", err)
+				t.Errorf("HandleCommandWithClipboard() error = %v", err)
 			}
 			if shouldExit != tt.wantExit {
-				t.Errorf("HandleCommand() shouldExit = %v, want %v", shouldExit, tt.wantExit)
+				t.Errorf("HandleCommandWithClipboard() shouldExit = %v, want %v", shouldExit, tt.wantExit)
 			}
 			if out.String() != tt.wantOutput {
-				t.Errorf("HandleCommand() output = %q, want %q", out.String(), tt.wantOutput)
+				t.Errorf("HandleCommandWithClipboard() output = %q, want %q", out.String(), tt.wantOutput)
 			}
 		})
 	}
 }
 
-func TestHandleCommand_Unknown(t *testing.T) {
+func TestHandleCommandWithClipboard_Unknown(t *testing.T) {
 	var out bytes.Buffer
-	shouldExit, err := HandleCommand("/foo", "", "", &out)
+	shouldExit, err := HandleCommandWithClipboard("/foo", "", nil, &out)
 
 	if err == nil {
-		t.Error("HandleCommand() expected error for unknown command")
+		t.Error("HandleCommandWithClipboard() expected error for unknown command")
 	}
 	if shouldExit {
-		t.Error("HandleCommand() should not exit on unknown command")
+		t.Error("HandleCommandWithClipboard() should not exit on unknown command")
 	}
 	wantErr := "Unknown command: /foo. Type /help for available commands."
 	if err.Error() != wantErr {
-		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+		t.Errorf("HandleCommandWithClipboard() error = %q, want %q", err.Error(), wantErr)
 	}
 }
 
-func TestHandleCommand_Help(t *testing.T) {
+func TestHandleCommandWithClipboard_Help(t *testing.T) {
 	var out bytes.Buffer
-	shouldExit, err := HandleCommand("/help", "", "", &out)
+	shouldExit, err := HandleCommandWithClipboard("/help", "", nil, &out)
 
 	if err != nil {
-		t.Errorf("HandleCommand() error = %v", err)
+		t.Errorf("HandleCommandWithClipboard() error = %v", err)
 	}
 	if shouldExit {
-		t.Error("HandleCommand() should not exit on /help")
+		t.Error("HandleCommandWithClipboard() should not exit on /help")
 	}
 
 	wantOutput := `Commands:
@@ -217,65 +217,69 @@ func TestHandleCommand_Help(t *testing.T) {
   /help   Show this help
 `
 	if out.String() != wantOutput {
-		t.Errorf("HandleCommand() output = %q, want %q", out.String(), wantOutput)
+		t.Errorf("HandleCommandWithClipboard() output = %q, want %q", out.String(), wantOutput)
 	}
 }
 
-func TestHandleCommand_Copy_Success(t *testing.T) {
+func TestHandleCommandWithClipboard_Copy_Success(t *testing.T) {
 	lastResponse := "Here is your code:\n```\nfmt.Println(\"hello\")\n```\n"
 
 	var out bytes.Buffer
-	// Use "cat" as a mock clipboard command that accepts stdin
-	shouldExit, err := HandleCommand("/copy", lastResponse, "cat", &out)
+	clipboard := &mockClipboard{}
+	shouldExit, err := HandleCommandWithClipboard("/copy", lastResponse, clipboard, &out)
 
 	if err != nil {
-		t.Errorf("HandleCommand() error = %v", err)
+		t.Errorf("HandleCommandWithClipboard() error = %v", err)
 	}
 	if !shouldExit {
-		t.Error("HandleCommand() should exit on /copy")
+		t.Error("HandleCommandWithClipboard() should exit on /copy")
 	}
 	wantOutput := "\u2713 Copied to clipboard\n"
 	if out.String() != wantOutput {
-		t.Errorf("HandleCommand() output = %q, want %q", out.String(), wantOutput)
+		t.Errorf("HandleCommandWithClipboard() output = %q, want %q", out.String(), wantOutput)
+	}
+	wantClipboard := "fmt.Println(\"hello\")\n"
+	if clipboard.written != wantClipboard {
+		t.Errorf("clipboard.written = %q, want %q", clipboard.written, wantClipboard)
 	}
 }
 
-func TestHandleCommand_Copy_NoResponse(t *testing.T) {
+func TestHandleCommandWithClipboard_Copy_NoResponse(t *testing.T) {
 	var out bytes.Buffer
-	_, err := HandleCommand("/copy", "", "cat", &out)
+	_, err := HandleCommandWithClipboard("/copy", "", &mockClipboard{}, &out)
 
 	if err == nil {
-		t.Error("HandleCommand() expected error when no response")
+		t.Error("HandleCommandWithClipboard() expected error when no response")
 	}
 	wantErr := "No response to copy from"
 	if err.Error() != wantErr {
-		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+		t.Errorf("HandleCommandWithClipboard() error = %q, want %q", err.Error(), wantErr)
 	}
 }
 
-func TestHandleCommand_Copy_NoCodeBlock(t *testing.T) {
+func TestHandleCommandWithClipboard_Copy_NoCodeBlock(t *testing.T) {
 	var out bytes.Buffer
-	_, err := HandleCommand("/copy", "Just plain text", "cat", &out)
+	_, err := HandleCommandWithClipboard("/copy", "Just plain text", &mockClipboard{}, &out)
 
 	if err == nil {
-		t.Error("HandleCommand() expected error when no code block")
+		t.Error("HandleCommandWithClipboard() expected error when no code block")
 	}
 	wantErr := "No code block to copy"
 	if err.Error() != wantErr {
-		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+		t.Errorf("HandleCommandWithClipboard() error = %q, want %q", err.Error(), wantErr)
 	}
 }
 
-func TestHandleCommand_Copy_NoClipboard(t *testing.T) {
+func TestHandleCommandWithClipboard_Copy_NoClipboard(t *testing.T) {
 	lastResponse := "```\ncode\n```"
 	var out bytes.Buffer
-	_, err := HandleCommand("/copy", lastResponse, "", &out)
+	_, err := HandleCommandWithClipboard("/copy", lastResponse, nil, &out)
 
 	if err == nil {
-		t.Error("HandleCommand() expected error when clipboard unavailable")
+		t.Error("HandleCommandWithClipboard() expected error when clipboard unavailable")
 	}
 	wantErr := "Clipboard not available"
 	if err.Error() != wantErr {
-		t.Errorf("HandleCommand() error = %q, want %q", err.Error(), wantErr)
+		t.Errorf("HandleCommandWithClipboard() error = %q, want %q", err.Error(), wantErr)
 	}
 }

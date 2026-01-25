@@ -36,12 +36,13 @@ type CLI struct {
 
 // Deps holds injectable dependencies for the app.
 type Deps struct {
-	Client    OllamaChatter
-	Stdin     io.Reader
-	Stdout    io.Writer
-	Stderr    io.Writer
-	Clipboard ClipboardWriter
-	IsTTY     func() bool
+	Client       OllamaChatter
+	Stdin        io.Reader
+	Stdout       io.Writer
+	Stderr       io.Writer
+	Clipboard    ClipboardWriter
+	IsTTY        func() bool
+	SystemPrompt string
 }
 
 func parseArgs() (*CLI, error) {
@@ -96,42 +97,8 @@ func isTTY() bool {
 func runWithDeps(ctx context.Context, cli *CLI, deps *Deps) error {
 	_ = ctx // Context available for future cancellation support
 
-	// Determine config path
-	configPath := cli.ConfigPath
-	if configPath == "" {
-		configPath = defaultConfigPath()
-	}
-	configPath = ExpandPath(configPath)
-
-	// Load config
-	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(deps.Stderr, "config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF\n", configPath)
-			return fmt.Errorf("config file not found: %s", configPath)
-		}
-		return fmt.Errorf("invalid config: %v", err)
-	}
-
-	// Apply CLI overrides
-	if cli.Model != "" {
-		cfg.Model = cli.Model
-	}
-
-	// Validate model
-	if cfg.Model == "" {
-		return fmt.Errorf("no model specified\n\nSet 'model' in config or use --model flag")
-	}
-
-	// Load system prompt
-	promptPath := ExpandPath(cfg.SystemPromptFile)
-	systemPrompt, err := os.ReadFile(promptPath)
-	if err != nil {
-		return fmt.Errorf("system prompt not found: %s", promptPath)
-	}
-
 	// Initialize conversation
-	conv := NewConversation(string(systemPrompt))
+	conv := NewConversation(deps.SystemPrompt)
 
 	// Prepare user's idea
 	userIdea := cli.Idea
@@ -224,14 +191,27 @@ func run(ctx context.Context, cli *CLI) error {
 		model = cli.Model
 	}
 
+	// Validate model
+	if model == "" {
+		return fmt.Errorf("no model specified\n\nSet 'model' in config or use --model flag")
+	}
+
+	// Load system prompt
+	promptPath := ExpandPath(cfg.SystemPromptFile)
+	systemPrompt, err := os.ReadFile(promptPath)
+	if err != nil {
+		return fmt.Errorf("system prompt not found: %s", promptPath)
+	}
+
 	// Create real dependencies
 	deps := &Deps{
-		Client:    NewOllamaClient(cfg.OllamaHost, model),
-		Stdin:     os.Stdin,
-		Stdout:    os.Stdout,
-		Stderr:    os.Stderr,
-		Clipboard: NewClipboardWriter(DetectClipboardCmd(cfg.ClipboardCmd)),
-		IsTTY:     isTTY,
+		Client:       NewOllamaClient(cfg.OllamaHost, model),
+		Stdin:        os.Stdin,
+		Stdout:       os.Stdout,
+		Stderr:       os.Stderr,
+		Clipboard:    NewClipboardWriter(DetectClipboardCmd(cfg.ClipboardCmd)),
+		IsTTY:        isTTY,
+		SystemPrompt: string(systemPrompt),
 	}
 
 	return runWithDeps(ctx, cli, deps)
