@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -31,6 +32,16 @@ type CLI struct {
 	NoCopy     bool
 	Quiet      bool
 	Idea       string
+}
+
+// Deps holds injectable dependencies for the app.
+type Deps struct {
+	Client    OllamaChatter
+	Stdin     io.Reader
+	Stdout    io.Writer
+	Stderr    io.Writer
+	Clipboard ClipboardWriter
+	IsTTY     func() bool
 }
 
 func parseArgs() (*CLI, error) {
