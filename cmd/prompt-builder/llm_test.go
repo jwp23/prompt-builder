@@ -1,4 +1,4 @@
-// ollama_test.go
+// llm_test.go
 package main
 
 import (
@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-func TestOllamaRequest_Serialization(t *testing.T) {
-	req := OllamaRequest{
+func TestChatRequest_Serialization(t *testing.T) {
+	req := ChatRequest{
 		Model: "llama3.2",
 		Messages: []Message{
 			{Role: "system", Content: "You are helpful."},
@@ -49,44 +49,48 @@ func TestStreamCallback_Type(t *testing.T) {
 	}
 }
 
-func TestOllamaStreamChunk_Deserialization(t *testing.T) {
+func TestChatStreamChunk_Deserialization(t *testing.T) {
 	tests := []struct {
-		name        string
-		json        string
-		wantRole    string
-		wantContent string
-		wantDone    bool
+		name         string
+		json         string
+		wantContent  string
+		wantFinished bool
 	}{
 		{
-			name:        "partial chunk",
-			json:        `{"message":{"role":"assistant","content":"Hello"},"done":false}`,
-			wantRole:    "assistant",
-			wantContent: "Hello",
-			wantDone:    false,
+			name:         "partial chunk",
+			json:         `{"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}`,
+			wantContent:  "Hello",
+			wantFinished: false,
 		},
 		{
-			name:        "final chunk",
-			json:        `{"message":{"role":"assistant","content":"!"},"done":true}`,
-			wantRole:    "assistant",
-			wantContent: "!",
-			wantDone:    true,
+			name:         "final chunk",
+			json:         `{"choices":[{"delta":{},"finish_reason":"stop"}]}`,
+			wantContent:  "",
+			wantFinished: true,
+		},
+		{
+			name:         "empty delta",
+			json:         `{"choices":[{"delta":{},"finish_reason":null}]}`,
+			wantContent:  "",
+			wantFinished: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var chunk OllamaStreamChunk
+			var chunk ChatStreamChunk
 			if err := json.Unmarshal([]byte(tt.json), &chunk); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
-			if chunk.Message.Role != tt.wantRole {
-				t.Errorf("role = %q, want %q", chunk.Message.Role, tt.wantRole)
+			if len(chunk.Choices) == 0 {
+				t.Fatal("expected at least one choice")
 			}
-			if chunk.Message.Content != tt.wantContent {
-				t.Errorf("content = %q, want %q", chunk.Message.Content, tt.wantContent)
+			if chunk.Choices[0].Delta.Content != tt.wantContent {
+				t.Errorf("content = %q, want %q", chunk.Choices[0].Delta.Content, tt.wantContent)
 			}
-			if chunk.Done != tt.wantDone {
-				t.Errorf("done = %v, want %v", chunk.Done, tt.wantDone)
+			finished := chunk.Choices[0].FinishReason != nil && *chunk.Choices[0].FinishReason == "stop"
+			if finished != tt.wantFinished {
+				t.Errorf("finished = %v, want %v", finished, tt.wantFinished)
 			}
 		})
 	}
@@ -94,20 +98,29 @@ func TestOllamaStreamChunk_Deserialization(t *testing.T) {
 
 func fakeStreamingServer(chunks []string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
 		for i, chunk := range chunks {
-			done := i == len(chunks)-1
-			fmt.Fprintf(w, `{"message":{"role":"assistant","content":%q},"done":%v}`+"\n",
-				chunk, done)
+			isLast := i == len(chunks)-1
+			if isLast {
+				// Send the final content chunk
+				fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"content\":%q},\"finish_reason\":null}]}\n\n", chunk)
+				// Send the stop chunk
+				fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n")
+				// Send the done sentinel
+				fmt.Fprintf(w, "data: [DONE]\n\n")
+			} else {
+				fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"content\":%q},\"finish_reason\":null}]}\n\n", chunk)
+			}
 			w.(http.Flusher).Flush()
 		}
 	}))
 }
 
-func TestOllamaClient_ChatStream_HappyPath(t *testing.T) {
+func TestChatClient_ChatStream_HappyPath(t *testing.T) {
 	server := fakeStreamingServer([]string{"Hello", " there", "!"})
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "llama3.2")
+	client := NewChatClient(server.URL, "llama3.2")
 	messages := []Message{
 		{Role: "user", Content: "Hi"},
 	}
@@ -139,11 +152,11 @@ func TestOllamaClient_ChatStream_HappyPath(t *testing.T) {
 	}
 }
 
-func TestOllamaClient_ChatStream_CallbackError(t *testing.T) {
+func TestChatClient_ChatStream_CallbackError(t *testing.T) {
 	server := fakeStreamingServer([]string{"Hello", " there", "!"})
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "llama3.2")
+	client := NewChatClient(server.URL, "llama3.2")
 	messages := []Message{{Role: "user", Content: "Hi"}}
 
 	callbackErr := fmt.Errorf("callback failed")
@@ -164,13 +177,14 @@ func TestOllamaClient_ChatStream_CallbackError(t *testing.T) {
 	}
 }
 
-func TestOllamaClient_ChatStream_MalformedJSON(t *testing.T) {
+func TestChatClient_ChatStream_MalformedJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "not valid json")
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintln(w, "data: not valid json")
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "llama3.2")
+	client := NewChatClient(server.URL, "llama3.2")
 	messages := []Message{{Role: "user", Content: "Hi"}}
 
 	_, err := client.ChatStream(messages, func(token string) error {
@@ -185,14 +199,14 @@ func TestOllamaClient_ChatStream_MalformedJSON(t *testing.T) {
 	}
 }
 
-func TestOllamaClient_ChatStream_HTTPError(t *testing.T) {
+func TestChatClient_ChatStream_HTTPError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, "server error")
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "llama3.2")
+	client := NewChatClient(server.URL, "llama3.2")
 	messages := []Message{{Role: "user", Content: "Hi"}}
 
 	_, err := client.ChatStream(messages, func(token string) error {
@@ -202,93 +216,16 @@ func TestOllamaClient_ChatStream_HTTPError(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
-	if !strings.Contains(err.Error(), "Ollama request failed") {
+	if !strings.Contains(err.Error(), "LLM request failed") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
-func TestOllamaClient_IsModelLoaded_True(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/ps" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-		fmt.Fprintln(w, `{"models":[{"name":"llama3.2"}]}`)
-	}))
-	defer server.Close()
-
-	client := NewOllamaClient(server.URL, "llama3.2")
-	loaded, err := client.IsModelLoaded()
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !loaded {
-		t.Error("expected model to be loaded")
-	}
-}
-
-func TestOllamaClient_IsModelLoaded_False(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{"models":[{"name":"other-model"}]}`)
-	}))
-	defer server.Close()
-
-	client := NewOllamaClient(server.URL, "llama3.2")
-	loaded, err := client.IsModelLoaded()
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if loaded {
-		t.Error("expected model to not be loaded")
-	}
-}
-
-func TestOllamaClient_IsModelLoaded_EmptyList(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{"models":[]}`)
-	}))
-	defer server.Close()
-
-	client := NewOllamaClient(server.URL, "llama3.2")
-	loaded, err := client.IsModelLoaded()
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if loaded {
-		t.Error("expected model to not be loaded with empty list")
-	}
-}
-
-func TestOllamaClient_IsModelLoaded_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewOllamaClient(server.URL, "llama3.2")
-	_, err := client.IsModelLoaded()
-
-	if err == nil {
-		t.Error("expected error for HTTP 500")
-	}
-}
-
-func TestOllamaClient_IsModelLoaded_ConnectionRefused(t *testing.T) {
-	client := NewOllamaClient("http://localhost:1", "llama3.2")
-	_, err := client.IsModelLoaded()
-
-	if err == nil {
-		t.Error("expected error for connection refused")
-	}
-}
-
-func TestOllamaClient_ChatStreamWithSpinner_StopsOnFirstToken(t *testing.T) {
+func TestChatClient_ChatStreamWithSpinner_StopsOnFirstToken(t *testing.T) {
 	server := fakeStreamingServer([]string{"Hello", " there", "!"})
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "llama3.2")
+	client := NewChatClient(server.URL, "llama3.2")
 	messages := []Message{{Role: "user", Content: "Hi"}}
 
 	var tokens []string

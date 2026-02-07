@@ -18,7 +18,7 @@ import (
 const (
 	ExitSuccess     = 0
 	ExitConfigError = 1
-	ExitOllamaError = 2
+	ExitLLMError = 2
 	ExitNoModel     = 3
 )
 
@@ -36,7 +36,7 @@ type CLI struct {
 
 // Deps holds injectable dependencies for the app.
 type Deps struct {
-	Client       OllamaChatter
+	Client       LLMClient
 	Stdin        io.Reader
 	Stdout       io.Writer
 	Stderr       io.Writer
@@ -120,7 +120,7 @@ func runWithDeps(ctx context.Context, cli *CLI, deps *Deps) error {
 			return nil
 		})
 		if err != nil {
-			return fmt.Errorf("Ollama request failed: %v", err)
+			return fmt.Errorf("LLM request failed: %v", err)
 		}
 		if !cli.Quiet {
 			fmt.Fprintln(deps.Stdout) // newline after streaming completes
@@ -180,7 +180,7 @@ func run(ctx context.Context, cli *CLI) error {
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF", configPath)
+			return fmt.Errorf("config file not found: %s\n\nCreate it with:\n  mkdir -p ~/.config/prompt-builder\n  cat > ~/.config/prompt-builder/config.yaml << 'EOF'\n  model: llama3.2\n  host: http://localhost:11434\n  system_prompt_file: ~/.config/prompt-builder/prompt-architect.md\n  EOF", configPath)
 		}
 		return fmt.Errorf("invalid config: %v", err)
 	}
@@ -205,7 +205,7 @@ func run(ctx context.Context, cli *CLI) error {
 
 	// Create real dependencies
 	deps := &Deps{
-		Client:       NewOllamaClient(cfg.OllamaHost, model),
+		Client:       NewChatClient(cfg.Host, model),
 		Stdin:        os.Stdin,
 		Stdout:       os.Stdout,
 		Stderr:       os.Stderr,
@@ -244,8 +244,8 @@ func main() {
 		switch {
 		case strings.Contains(errStr, "config") || strings.Contains(errStr, "system prompt"):
 			os.Exit(ExitConfigError)
-		case strings.Contains(errStr, "Ollama") || strings.Contains(errStr, "connect"):
-			os.Exit(ExitOllamaError)
+		case strings.Contains(errStr, "LLM") || strings.Contains(errStr, "connect"):
+			os.Exit(ExitLLMError)
 		case strings.Contains(errStr, "no model"):
 			os.Exit(ExitNoModel)
 		default:

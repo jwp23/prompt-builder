@@ -3,17 +3,18 @@
 Transform ideas into structured prompts using a local LLM.
 
 ## AI Generation
-This was developed wtih AI using the [superpowers](https://github.com/obra/superpowers) workflow.
+AI developed this using the [superpowers](https://github.com/obra/superpowers) workflow.
 
-The system proompt I tested it with is based on the RGCOA format taught by [withKmo.com](https://withkmo.com/).
+The system prompt is based on the RGCOA format taught by [withKmo.com](https://withkmo.com/).
 
 ## Quick Start
 
-**1. Install Ollama and pull a model:**
+**1. Set up an OpenAI-compatible LLM server:**
 
-Follow the instructions [https://ollama.com/download](https://ollama.com/download)
+Any server that speaks the OpenAI chat completions protocol will work. [Ollama](https://ollama.com/download) provides the easiest start; [llama.cpp server](https://github.com/ggml-org/llama.cpp), [LM Studio](https://lmstudio.ai/), and [vLLM](https://docs.vllm.ai/) also work.
 
 ```bash
+# Example: Ollama
 ollama pull gpt-oss:20b
 ```
 
@@ -32,6 +33,7 @@ mkdir -p ~/.config/prompt-builder
 
 cat > ~/.config/prompt-builder/config.yaml << 'EOF'
 model: gpt-oss:20b
+host: http://localhost:11434
 system_prompt_file: ~/.config/prompt-builder/system-prompt.md
 EOF
 ```
@@ -42,7 +44,7 @@ EOF
 prompt-builder "a prompt for writing technical docs"
 ```
 
-The tool uses the system prompt to generate a structured prompt, and copies it to your clipboard.
+The tool generates a structured prompt using the system prompt and copies it to your clipboard.
 
 ## Usage
 
@@ -63,7 +65,7 @@ prompt-builder [flags] <idea>
 
 ```bash
 # Interactive (default)
-prompt-builder I want a clean keto diety"
+prompt-builder "I want a clean keto diet"
 
 # Different model
 prompt-builder -m mistral "I want a clean keto diet"
@@ -93,11 +95,11 @@ model: gpt-oss:20b
 system_prompt_file: ~/.config/prompt-builder/system-prompt.md
 
 # Optional
-ollama_host: http://localhost:11434
+host: http://localhost:11434
 clipboard_cmd: wl-copy
 ```
 
-The tool auto-detects your clipboard command: `wl-copy` (Wayland), `xclip` (X11), or `pbcopy` (macOS).
+The tool detects your clipboard command automatically: `wl-copy` (Wayland), `xclip` (X11), or `pbcopy` (macOS).
 
 ## How It Works
 
@@ -106,7 +108,7 @@ The tool auto-detects your clipboard command: `wl-copy` (Wayland), `xclip` (X11)
 3. You answer until the prompt is ready (use `/help` to see available commands)
 4. Type `/copy` to copy the final prompt and exit
 
-When piped to another command, the tool generates immediately without questions.
+When piped to another command, the tool generates the prompt immediately without questions.
 
 ## Interactive Commands
 
@@ -139,7 +141,7 @@ Commands:
 |------|---------|
 | 0 | Success |
 | 1 | Config error |
-| 2 | Ollama connection failed |
+| 2 | LLM server connection failed |
 | 3 | No model specified |
 | 130 | Interrupted (Ctrl+C) |
 
@@ -168,6 +170,6 @@ go test -cover ./cmd/prompt-builder
 
 ## Requirements
 
-- Go 1.21+
-- Ollama
+- Go 1.25+
+- An OpenAI-compatible LLM server (Ollama, llama.cpp, LM Studio, vLLM)
 - A clipboard tool (auto-detected)

@@ -155,21 +155,21 @@ func TestE2E_MissingIdea(t *testing.T) {
 	}
 }
 
-func TestE2E_OllamaUnreachable(t *testing.T) {
+func TestE2E_LLMUnreachable(t *testing.T) {
 	// Create temp config pointing to bad host
 	tmpDir := t.TempDir()
 	promptFile := filepath.Join(tmpDir, "prompt.txt")
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
 	os.WriteFile(promptFile, []byte("Test prompt"), 0644)
-	config := fmt.Sprintf("model: test\nollama_host: http://localhost:99999\nsystem_prompt_file: %s", promptFile)
+	config := fmt.Sprintf("model: test\nhost: http://localhost:99999\nsystem_prompt_file: %s", promptFile)
 	os.WriteFile(configFile, []byte(config), 0644)
 
 	cmd := exec.Command(testBinary, "--config", configFile, "test idea")
 	output, err := cmd.CombinedOutput()
 
 	if err == nil {
-		t.Fatal("expected error for unreachable Ollama")
+		t.Fatal("expected error for unreachable LLM server")
 	}
 
 	exitErr, ok := err.(*exec.ExitError)
@@ -178,7 +178,7 @@ func TestE2E_OllamaUnreachable(t *testing.T) {
 	}
 
 	if exitErr.ExitCode() != 2 {
-		t.Errorf("expected exit code 2 (Ollama error), got: %d\nOutput: %s", exitErr.ExitCode(), output)
+		t.Errorf("expected exit code 2 (LLM error), got: %d\nOutput: %s", exitErr.ExitCode(), output)
 	}
 }
 
@@ -190,7 +190,7 @@ func TestE2E_FullConversation(t *testing.T) {
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
 	os.WriteFile(promptFile, []byte("You are a helpful assistant. Always respond with a code block containing 'DONE'."), 0644)
-	config := fmt.Sprintf("model: %s\nollama_host: %s\nsystem_prompt_file: %s", model, ollamaHost(), promptFile)
+	config := fmt.Sprintf("model: %s\nhost: %s\nsystem_prompt_file: %s", model, ollamaHost(), promptFile)
 	os.WriteFile(configFile, []byte(config), 0644)
 
 	cmd := exec.Command(testBinary, "--config", configFile, "say hello")
@@ -217,7 +217,7 @@ func TestE2E_PipeMode(t *testing.T) {
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
 	os.WriteFile(promptFile, []byte("You are a helpful assistant. Respond with a code block."), 0644)
-	config := fmt.Sprintf("model: %s\nollama_host: %s\nsystem_prompt_file: %s", model, ollamaHost(), promptFile)
+	config := fmt.Sprintf("model: %s\nhost: %s\nsystem_prompt_file: %s", model, ollamaHost(), promptFile)
 	os.WriteFile(configFile, []byte(config), 0644)
 
 	// Use echo to pipe input
@@ -246,7 +246,7 @@ func TestE2E_CustomConfig(t *testing.T) {
 
 	// Use a distinctive prompt we can verify
 	os.WriteFile(promptFile, []byte("Always start your response with CUSTOM_CONFIG_TEST."), 0644)
-	config := fmt.Sprintf("model: %s\nollama_host: %s\nsystem_prompt_file: %s", model, ollamaHost(), promptFile)
+	config := fmt.Sprintf("model: %s\nhost: %s\nsystem_prompt_file: %s", model, ollamaHost(), promptFile)
 	os.WriteFile(configFile, []byte(config), 0644)
 
 	cmd := exec.Command(testBinary, "--config", configFile, "hello")

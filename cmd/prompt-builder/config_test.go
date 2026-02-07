@@ -13,7 +13,7 @@ func TestLoadConfig_ValidFile(t *testing.T) {
 	configPath := filepath.Join(dir, "config.yaml")
 	content := `model: llama3.2
 system_prompt_file: /path/to/prompt.md
-ollama_host: http://localhost:11434
+host: http://localhost:11434
 clipboard_cmd: wl-copy
 `
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
@@ -31,8 +31,8 @@ clipboard_cmd: wl-copy
 	if cfg.SystemPromptFile != "/path/to/prompt.md" {
 		t.Errorf("SystemPromptFile = %q, want %q", cfg.SystemPromptFile, "/path/to/prompt.md")
 	}
-	if cfg.OllamaHost != "http://localhost:11434" {
-		t.Errorf("OllamaHost = %q, want %q", cfg.OllamaHost, "http://localhost:11434")
+	if cfg.Host != "http://localhost:11434" {
+		t.Errorf("Host = %q, want %q", cfg.Host, "http://localhost:11434")
 	}
 	if cfg.ClipboardCmd != "wl-copy" {
 		t.Errorf("ClipboardCmd = %q, want %q", cfg.ClipboardCmd, "wl-copy")
@@ -54,8 +54,8 @@ system_prompt_file: /path/to/prompt.md
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cfg.OllamaHost != "http://localhost:11434" {
-		t.Errorf("OllamaHost = %q, want default %q", cfg.OllamaHost, "http://localhost:11434")
+	if cfg.Host != "http://localhost:11434" {
+		t.Errorf("Host = %q, want default %q", cfg.Host, "http://localhost:11434")
 	}
 }
 

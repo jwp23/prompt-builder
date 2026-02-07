@@ -12,7 +12,7 @@ import (
 type Config struct {
 	Model            string `yaml:"model"`
 	SystemPromptFile string `yaml:"system_prompt_file"`
-	OllamaHost       string `yaml:"ollama_host"`
+	Host             string `yaml:"host"`
 	ClipboardCmd     string `yaml:"clipboard_cmd"`
 }
 
@@ -23,7 +23,7 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	cfg := Config{
-		OllamaHost: "http://localhost:11434",
+		Host: "http://localhost:11434",
 	}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err

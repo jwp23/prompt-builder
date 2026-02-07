@@ -18,7 +18,7 @@ func TestIntegration_ConfigLoading(t *testing.T) {
 
 	configContent := `model: llama3.2
 system_prompt_file: ` + promptPath + `
-ollama_host: http://localhost:11434
+host: http://localhost:11434
 `
 	promptContent := `# Test System Prompt
 You are a test assistant.
@@ -140,7 +140,7 @@ func TestRun_PipeMode(t *testing.T) {
 	}
 
 	// Capture messages sent to mock
-	mock := deps.Client.(*mockOllama)
+	mock := deps.Client.(*mockLLM)
 
 	err := runWithDeps(context.Background(), cli, deps)
 	if err != nil {
@@ -190,7 +190,7 @@ func TestRun_PipeMode_Quiet(t *testing.T) {
 	}
 }
 
-func TestRun_OllamaError(t *testing.T) {
+func TestRun_LLMError(t *testing.T) {
 	tmpDir := t.TempDir()
 	promptFile := filepath.Join(tmpDir, "prompt.txt")
 	configFile := filepath.Join(tmpDir, "config.yaml")
@@ -199,7 +199,7 @@ func TestRun_OllamaError(t *testing.T) {
 	os.WriteFile(configFile, []byte("model: test\nsystem_prompt_file: "+promptFile), 0644)
 
 	deps := newTestDeps(
-		withOllamaError(errors.New("connection refused")),
+		withLLMError(errors.New("connection refused")),
 		withTTY(false),
 	)
 
@@ -212,8 +212,8 @@ func TestRun_OllamaError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "Ollama") {
-		t.Errorf("expected Ollama error, got: %v", err)
+	if !strings.Contains(err.Error(), "LLM") {
+		t.Errorf("expected LLM error, got: %v", err)
 	}
 }
 

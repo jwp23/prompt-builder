@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestOllamaClient_ImplementsOllamaChatter(t *testing.T) {
-	var _ OllamaChatter = (*OllamaClient)(nil)
+func TestChatClient_ImplementsLLMClient(t *testing.T) {
+	var _ LLMClient = (*ChatClient)(nil)
 }
 
 func TestRunWithDeps_Exists(t *testing.T) {

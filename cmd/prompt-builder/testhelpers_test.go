@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-// mockOllama implements OllamaChatter for testing.
-type mockOllama struct {
+// mockLLM implements LLMClient for testing.
+type mockLLM struct {
 	responses []string
 	calls     int
 	err       error
 }
 
-func (m *mockOllama) ChatStream(messages []Message, onToken StreamCallback) (string, error) {
+func (m *mockLLM) ChatStream(messages []Message, onToken StreamCallback) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}
@@ -33,7 +33,7 @@ func (m *mockOllama) ChatStream(messages []Message, onToken StreamCallback) (str
 	return resp, nil
 }
 
-func (m *mockOllama) ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error) {
+func (m *mockLLM) ChatStreamWithSpinner(messages []Message, tty bool, onToken StreamCallback) (string, error) {
 	return m.ChatStream(messages, onToken)
 }
 
@@ -57,7 +57,7 @@ type testOption func(*Deps)
 // newTestDeps creates Deps with mocks for testing.
 func newTestDeps(opts ...testOption) *Deps {
 	d := &Deps{
-		Client:       &mockOllama{},
+		Client:       &mockLLM{},
 		Stdin:        strings.NewReader(""),
 		Stdout:       &bytes.Buffer{},
 		Stderr:       &bytes.Buffer{},
@@ -73,13 +73,13 @@ func newTestDeps(opts ...testOption) *Deps {
 
 func withResponses(responses ...string) testOption {
 	return func(d *Deps) {
-		d.Client = &mockOllama{responses: responses}
+		d.Client = &mockLLM{responses: responses}
 	}
 }
 
-func withOllamaError(err error) testOption {
+func withLLMError(err error) testOption {
 	return func(d *Deps) {
-		d.Client = &mockOllama{err: err}
+		d.Client = &mockLLM{err: err}
 	}
 }
 
